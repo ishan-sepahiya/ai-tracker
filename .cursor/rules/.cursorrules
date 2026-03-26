@@ -1,0 +1,151 @@
+# AI Usage Tracker — Cursor Project Rules
+# Fly.io deployment (not Vercel)
+
+## Project Overview
+A B2B SaaS web app that tracks AI provider costs (OpenAI, Anthropic, GCP, AWS).
+Shows spend dashboards, sends budget alert emails, runs daily cost-fetch cron jobs.
+Target users: CTOs, engineers, finance leads managing multi-provider AI spend.
+
+## Tech Stack
+- Framework: Next.js 14 (App Router) with standalone output mode
+- Styling: Tailwind CSS + shadcn/ui
+- Database + Auth: Supabase (@supabase/supabase-js + @supabase/ssr)
+- Email: Resend (@resend/react + react-email)
+- Cron: Fly.io scheduled machine (hits /api/cron/fetch-usage daily)
+- Error tracking: Sentry
+- Deployment: Fly.io via Docker
+
+## Critical Next.js Config for Fly.io
+next.config.js must have:
+  output: 'standalone'
+This is required for the Dockerfile to work. Without it, the build fails.
+
+## Folder Structure
+src/
+  app/
+    (auth)/
+      login/page.tsx
+      signup/page.tsx
+    (dashboard)/
+      layout.tsx          # sidebar + auth guard
+      dashboard/page.tsx  # spend overview
+      providers/page.tsx  # manage connected providers
+      settings/page.tsx   # budget + notification prefs
+    api/
+      health/route.ts     # GET — Fly.io health check, just return 200
+      cron/
+        fetch-usage/route.ts  # POST — protected by CRON_SECRET header
+      providers/route.ts
+      budgets/route.ts
+  components/
+    ui/                   # shadcn/ui primitives
+    charts/               # recharts spend components
+    emails/               # React Email templates
+  lib/
+    supabase/
+      client.ts           # browser Supabase client
+      server.ts           # server Supabase client
+    providers/
+      openai.ts           # fetch from OpenAI usage API
+    encryption.ts         # AES-256-CBC encrypt/decrypt for API keys
+    budget.ts             # budget status logic (green/amber/red)
+  types/
+    index.ts
+
+## Coding Rules
+
+### General
+- Always TypeScript. No .js files except config files.
+- Named exports everywhere except Next.js page/layout files.
+- Never use `any`. Use proper types or `unknown`.
+- Always handle loading + error states in every UI component.
+- Keep components under 150 lines — split if larger.
+
+### Next.js + Fly.io specific
+- next.config.js MUST have output: 'standalone' — without this Docker build breaks.
+- Never use Vercel-specific features: no vercel.json, no @vercel/og, no edge runtime.
+- Use standard Node.js runtime for all API routes (not edge runtime).
+- The /api/health route must return 200 OK — Fly.io uses it for health checks.
+- No Vercel Cron — cron is handled by a separate Fly.io scheduled machine.
+
+### Supabase
+- Never use Supabase client directly in components — use server actions or API routes.
+- Server-side client uses SUPABASE_SERVICE_ROLE_KEY for cron routes only.
+- Browser client uses NEXT_PUBLIC_SUPABASE_ANON_KEY — this is safe to expose.
+- Always check error after every Supabase query. Never assume success.
+- Row Level Security is enabled — always query as the authenticated user.
+
+### Security
+- API keys must be AES-256-CBC encrypted before storing in DB.
+- Cron endpoint must check: Authorization: Bearer CRON_SECRET header.
+- All other API routes must verify user session first.
+- Never return raw Supabase errors to client — log server-side, return generic message.
+- SUPABASE_SERVICE_ROLE_KEY is server-only — never in client code or NEXT_PUBLIC_.
+
+### OpenAI Usage API
+- Endpoint: GET https://api.openai.com/v1/usage?date=YYYY-MM-DD
+- Auth header: Authorization: Bearer {decrypted_api_key}
+- Map response to usage_records table shape.
+- Always store the raw JSON response in the raw_response jsonb column for debugging.
+- Handle rate limits with exponential backoff — wrap fetch in a retry helper.
+
+### UI / Styling
+- Tailwind utility classes only. No custom CSS.
+- shadcn/ui for all base components.
+- Budget status colors: green (#16a34a) = on track, amber (#d97706) = >80%, red (#dc2626) = over.
+- Every page needs a loading.tsx and error.tsx.
+- Desktop-first for Phase 2. Mobile responsiveness is Phase 3.
+
+### Emails
+- React Email templates in src/components/emails/.
+- Send via Resend. From address must be a verified domain.
+- Keep email templates simple — must render in Gmail on mobile.
+- Daily alert email: show total spend, % of budget used, status badge, link to dashboard.
+
+## Environment Variables
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+API_KEY_ENCRYPTION_SECRET=    # 32-char random string — generate: openssl rand -base64 32
+RESEND_API_KEY=
+RESEND_FROM_EMAIL=
+CRON_SECRET=                  # random string — generate: openssl rand -base64 32
+SENTRY_DSN=
+
+## Setting env vars on Fly.io
+fly secrets set NEXT_PUBLIC_SUPABASE_URL=... \
+  NEXT_PUBLIC_SUPABASE_ANON_KEY=... \
+  SUPABASE_SERVICE_ROLE_KEY=... \
+  API_KEY_ENCRYPTION_SECRET=... \
+  RESEND_API_KEY=... \
+  RESEND_FROM_EMAIL=... \
+  CRON_SECRET=...
+
+## Deploy Commands
+fly launch        # first time — creates app + fly.toml, auto-detects Dockerfile
+fly secrets set   # add all env vars
+fly deploy        # every deploy after that
+fly logs          # view logs
+fly ssh console   # SSH into running machine
+
+## Cron Setup on Fly.io
+Run this once after your first deploy to set up the daily usage fetch:
+  fly machine run . \
+    --schedule daily \
+    --entrypoint "/bin/sh /app/cron.sh" \
+    --env CRON_SECRET=your-secret
+
+## What NOT to build in Phase 2
+- No multi-provider support beyond OpenAI
+- No team / org features
+- No Stripe / payments
+- No anomaly detection or forecasting
+- No dark mode
+- No mobile optimisation
+
+## Phase 2 Done When
+- User signs up, connects OpenAI key, sets monthly budget
+- App fetches real OpenAI usage daily
+- User gets daily email: spend vs budget, green/amber/red status
+- Basic dashboard: total spend + daily cost chart
+- 5 real users using it without founders helping them

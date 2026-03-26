@@ -1,36 +1,122 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Tracker - EC2 Deployment Guide
 
-## Getting Started
+This project is deployed on EC2 using:
+- Next.js standalone build
+- Docker container
+- Nginx reverse proxy + rate limiting
+- PM2 process management
+- Certbot SSL
 
-First, run the development server:
+## 1) Required Environment Variables
+
+Copy `.env.local.example` to `.env.local` and fill in values:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.local.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Required keys:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+API_KEY_ENCRYPTION_SECRET=
+CRON_SECRET=
+RESEND_API_KEY=
+STRIPE_SECRET_KEY=
+STRIPE_WEBHOOK_SECRET=
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+On EC2, place this file at `/opt/ai-traker/.env.local`.
 
-## Learn More
+## 2) One-Time EC2 Bootstrap
 
-To learn more about Next.js, take a look at the following resources:
+Run the installer with required variables:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+chmod +x install.sh
+DOMAIN=yourdomain.com \
+GIT_REPO_URL=https://github.com/your-org/ai-traker.git \
+GIT_BRANCH=main \
+CRON_SECRET=your_cron_secret \
+./install.sh
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+What `install.sh` does:
+- Installs Node 20, Docker, Nginx, PM2, certbot
+- Clones or updates the repo in `/opt/ai-traker`
+- Builds Docker image from `Dockerfile`
+- Runs container through PM2
+- Configures Nginx using `nginx.conf`
+- Requests SSL certificate with certbot
+- Adds midnight cron job for `/api/cron/fetch-usage`
 
-## Deploy on Vercel
+## 3) Build/Run Locally (Optional)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm ci
+npm run build
+npm run start
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Docker local run:
+
+```bash
+docker build -t ai-traker:latest .
+docker run --rm -p 3000:3000 --env-file .env.local ai-traker:latest
+```
+
+## 4) Supabase Migrations
+
+Apply migrations in order:
+- `003_subscriptions.sql`
+- `004_rls_policies.sql`
+
+Use Supabase SQL editor or Supabase CLI:
+
+```bash
+supabase db push
+```
+
+If using SQL editor, execute files in `supabase/migrations` in numeric order.
+
+## 5) Stripe Webhook Setup
+
+In Stripe Dashboard:
+1. Go to Developers -> Webhooks
+2. Add endpoint:
+   - `https://yourdomain.com/api/stripe/webhook`
+3. Subscribe to relevant events (example):
+   - `checkout.session.completed`
+   - `customer.subscription.updated`
+   - `customer.subscription.deleted`
+4. Copy signing secret into:
+   - `STRIPE_WEBHOOK_SECRET`
+
+Also set:
+- `STRIPE_SECRET_KEY`
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
+
+## 6) Test Cron Manually
+
+From EC2:
+
+```bash
+curl -i -H "Authorization: Bearer $CRON_SECRET" https://yourdomain.com/api/cron/fetch-usage
+```
+
+Expected JSON contains:
+- `processed`
+- `succeeded`
+- `failed`
+- `alerts_sent`
+
+## 7) Deployment Pipeline Summary
+
+- Next config uses `output: 'standalone'`
+- Multi-stage Docker build outputs standalone server
+- Nginx proxies `:80` to app on `127.0.0.1:3000`
+- `/api/sdk/usage` is rate-limited to `100 req/min/IP`
+- PM2 keeps the Docker app running across reboots
