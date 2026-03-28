@@ -150,7 +150,7 @@ export default function Home() {
                         <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
                           <div 
                             className={`h-full bg-gradient-to-r ${stat.color} rounded-full shadow-inner transition-all duration-700 animate-pulse`} 
-                            style={{width: i === 3 ? '60%' : '85%"}}
+                            style={{width: i === 3 ? '60%' : '85%'}}
                           ></div>
                         </div>
                       </div>
