@@ -38,7 +38,6 @@ function extractModel(raw: unknown): string | null {
     (typeof obj.model_name === "string" ? obj.model_name : null) ??
     (typeof obj.modelName === "string" ? obj.modelName : null);
   if (model) return model;
-  // Best-effort look for nested shapes (sdk adapters vary).
   const usage = obj.usage as Record<string, unknown> | undefined;
   if (!usage) return null;
   return (
@@ -65,11 +64,16 @@ async function getAuthedUserId() {
     },
   });
 
-  const { data, error } = await supabase.auth.getUser();
-  if (error) throw new Error(error.message);
-  if (!data.user) redirect("/login");
-  return data.user.id;
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+  return user.id;
 }
+
+const Skeleton = ({ className = "" }: { className?: string }) => (
+  <div className={`glass-card animate-pulse rounded-2xl ${className}`}>
+    <div className="h-4 bg-[#D9D9D9]/30 rounded-lg"></div>
+  </div>
+);
 
 export default async function DashboardPage({
   searchParams,
@@ -128,15 +132,15 @@ export default async function DashboardPage({
   const progressPctClamped = Math.min(100, Math.max(0, progressPct));
 
   const palette = [
-    "#f59e0b",
-    "#ef4444",
-    "#3b82f6",
-    "#22c55e",
-    "#a78bfa",
-    "#14b8a6",
-    "#f97316",
-    "#60a5fa",
-  ];
+    "#3C6E71",
+    "#284B63",
+    "#D9D9D9",
+    "#FFFFFF",
+    "#FF6B6B",
+    "#4ECDC4",
+    "#45B7D1",
+    "#F7DC6F",
+  ].map(c => c === '#D9D9D9' || c === '#FFFFFF' ? c : `${c}CC`);  // Semi-transparent for pie
 
   const pieData = (providerCosts ?? []).map((p, i) => ({
     label: p.provider_name,
@@ -149,7 +153,7 @@ export default async function DashboardPage({
     y: Number(d.total_cost_usd ?? 0),
   }));
 
-  // Drill-down filters (GET query params)
+  // Filters
   const providerIdParam = typeof searchParams?.provider === "string" ? searchParams.provider : "all";
   const fromParam = typeof searchParams?.from === "string" ? searchParams.from : null;
   const toParam = typeof searchParams?.to === "string" ? searchParams.to : null;
@@ -172,8 +176,7 @@ export default async function DashboardPage({
     (providerRows ?? []).map((p) => [p.id, { name: p.display_name ?? p.provider_name, provider_name: p.provider_name }])
   );
 
-  const providerIdFilter =
-    providerIdParam && providerIdParam !== "all" ? providerIdParam : null;
+  const providerIdFilter = providerIdParam && providerIdParam !== "all" ? providerIdParam : null;
 
   let countQuery = supabaseAdmin
     .from("usage_records")
@@ -182,14 +185,11 @@ export default async function DashboardPage({
     .gte("date", from)
     .lte("date", to);
 
-  if (providerIdFilter) {
-    countQuery = countQuery.eq("provider_id", providerIdFilter);
-  }
+  if (providerIdFilter) countQuery = countQuery.eq("provider_id", providerIdFilter);
 
   const { count: totalCount } = await countQuery;
   const totalRows = totalCount ?? 0;
   const pageCount = Math.max(1, Math.ceil(totalRows / pageSize));
-
   const offset = (page - 1) * pageSize;
 
   let usageQuery = supabaseAdmin
@@ -199,13 +199,9 @@ export default async function DashboardPage({
     .gte("date", from)
     .lte("date", to);
 
-  if (providerIdFilter) {
-    usageQuery = usageQuery.eq("provider_id", providerIdFilter);
-  }
+  if (providerIdFilter) usageQuery = usageQuery.eq("provider_id", providerIdFilter);
 
-  const { data: usageRows } = await usageQuery
-    .order("date", { ascending: false })
-    .range(offset, offset + pageSize - 1);
+  const { data: usageRows } = await usageQuery.order("date", { ascending: false }).range(offset, offset + pageSize - 1);
 
   const drillRows = (usageRows ?? []).map((r) => {
     const model = extractModel(r.raw_response);
@@ -221,156 +217,148 @@ export default async function DashboardPage({
   });
 
   const forecastPill = forecast.will_exceed
-    ? { label: "Will exceed", color: "bg-red-950/60 border-red-900 text-red-200" }
+    ? { label: "Will exceed", color: "bg-red-500/20 border-red-400 text-red-100" }
     : forecast.pct_of_budget >= 80
-      ? { label: "At risk", color: "bg-amber-950/50 border-amber-900 text-amber-200" }
-      : { label: "On track", color: "bg-emerald-950/50 border-emerald-900 text-emerald-200" };
+      ? { label: "At risk", color: "bg-amber-500/20 border-amber-400 text-amber-100" }
+      : { label: "On track", color: "bg-emerald-500/20 border-emerald-400 text-emerald-100" };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-end justify-between gap-6">
-        <div>
-          <div className="text-sm text-zinc-400">Dashboard</div>
-          <div className="text-3xl font-semibold">Usage overview</div>
+    <div className="space-y-8">
+      {/* Header */}
+      <header className="glass-card p-8 rounded-3xl border border-[#D9D9D9]/30 mb-8">
+        <div className="flex items-end justify-between gap-6">
+          <div>
+            <div className="text-sm text-[#D9D9D9] mb-2" title="Current month overview">Dashboard</div>
+            <div className="text-4xl font-bold bg-gradient-to-r from-white to-[#D9D9D9] bg-clip-text text-transparent">
+              Usage Overview
+            </div>
+          </div>
+          <div className="text-sm text-[#D9D9D9]" title={`${monthYear}`}>
+            {monthYear} • {currentSpend.toFixed(2)} USD
+          </div>
         </div>
-        <div className="text-sm text-zinc-400">
-          {monthYear} season
-        </div>
-      </div>
+      </header>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        {/* Total Spend */}
-        <section className="xl:col-span-1 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5">
-          <div className="flex items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="text-sm text-zinc-400">Total Spend</div>
-              <div className="text-3xl font-semibold tabular-nums">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Total Spend Card */}
+        <section className="xl:col-span-1 glass-card p-8 rounded-3xl hover:shadow-3xl transition-all duration-300 group" title="Total spending this month">
+          <div className="flex items-start justify-between gap-6">
+            <div className="space-y-3">
+              <div className="text-sm text-[#D9D9D9] uppercase tracking-wider font-semibold" title="Cumulative spend across all providers">Total Spend</div>
+              <div className="text-4xl font-bold tabular-nums text-white">
                 ${currentSpend.toFixed(2)}
               </div>
             </div>
-            <div className="rounded-xl border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-100">
-              {pctChange >= 0 ? "+" : ""}
-              {pctChange.toFixed(0)}% MoM
+            <div className={`glass-card px-4 py-3 text-sm font-semibold rounded-2xl ${pctChange >= 0 ? 'bg-green-500/20 border-green-400 text-green-100' : 'bg-red-500/20 border-red-400 text-red-100'}`} title={`MoM change: ${pctChange >= 0 ? '+' : ''}${pctChange.toFixed(1)}%`}>
+              {pctChange >= 0 ? "+" : ""}{pctChange.toFixed(0)}% MoM
             </div>
           </div>
 
-          <div className="mt-4">
-            <div className="flex items-center justify-between text-xs text-zinc-500 mb-2">
+          <div className="mt-8">
+            <div className="flex items-center justify-between text-xs text-[#D9D9D9] mb-4">
               <span>Budget progress</span>
-              <span className="tabular-nums">
-                {monthlyLimit > 0 ? progressPctClamped.toFixed(0) : "0"}%
-              </span>
+              <span className="tabular-nums font-semibold">{progressPctClamped.toFixed(0)}%</span>
             </div>
-            <div className="h-2 rounded-full bg-zinc-900 overflow-hidden">
-              <div className="h-full bg-zinc-200" style={{ width: `${progressPctClamped}%` }} />
+            <div className="h-3 rounded-full bg-[#D9D9D9]/20 overflow-hidden group-hover:shadow-inner">
+              <div 
+                className="h-full bg-gradient-to-r from-[#3C6E71] to-[#284B63] rounded-full transition-all duration-1000"
+                style={{ width: `${progressPctClamped}%` }} 
+              />
             </div>
-            <div className="mt-2 text-xs text-zinc-500 tabular-nums">
-              {monthlyLimit > 0
-                ? `Limit: $${monthlyLimit.toFixed(2)}`
-                : "No monthly budget set yet"}
+            <div className="mt-3 text-xs text-[#D9D9D9] tabular-nums text-center">
+              {monthlyLimit > 0 ? `$${monthlyLimit.toFixed(2)} limit` : "Set budget in Settings"}
             </div>
           </div>
         </section>
 
-        {/* Provider Breakdown */}
-        <section className="xl:col-span-2 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5">
-          <div className="flex items-center justify-between gap-4">
+        {/* Provider Pie */}
+        <section className="xl:col-span-2 glass-card p-8 rounded-3xl hover:shadow-3xl transition-all duration-300" title="Cost breakdown by AI provider">
+          <div className="flex items-center justify-between gap-6 mb-2">
             <div>
-              <div className="text-sm text-zinc-400">Provider Breakdown</div>
-              <div className="text-xl font-semibold">Share of spend</div>
+              <div className="text-sm text-[#D9D9D9] uppercase tracking-wider font-semibold">Provider Breakdown</div>
+              <div className="text-xl font-bold text-white">Share of spend</div>
             </div>
           </div>
-
-          <div className="mt-4">
-            <PieChart
-              title="Providers"
-              data={pieData}
-            />
-          </div>
+          <PieChart data={pieData} />
         </section>
 
-        {/* Daily Spend */}
-        <section className="xl:col-span-2 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5">
-          <div>
-            <div className="text-sm text-zinc-400">Daily Spend</div>
-            <div className="text-xl font-semibold">Last 30 days</div>
+        {/* Daily Line */}
+        <section className="xl:col-span-2 glass-card p-8 rounded-3xl hover:shadow-3xl transition-all duration-300" title="Daily cost trend (last 30 days)">
+          <div className="mb-6">
+            <div className="text-sm text-[#D9D9D9] uppercase tracking-wider font-semibold mb-1">Daily Spend</div>
+            <div className="text-xl font-bold text-white">Trend analysis</div>
           </div>
-          <div className="mt-4">
-            <LineChart points={linePoints} />
-          </div>
+          <LineChart points={linePoints} stroke="#3C6E71" />
         </section>
 
         {/* Forecast */}
-        <section className="xl:col-span-1 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5">
-          <div className="flex items-start justify-between gap-3">
+        <section className="xl:col-span-1 glass-card p-8 rounded-3xl hover:shadow-3xl transition-all duration-300 group" title={`Projected end-of-month: $${forecast.projected_total_usd.toFixed(2)} (${forecast.days_remaining} days left)`}>
+          <div className="flex items-start justify-between gap-4 mb-6">
             <div>
-              <div className="text-sm text-zinc-400">Forecast</div>
-              <div className="text-xl font-semibold">End-of-month estimate</div>
+              <div className="text-sm text-[#D9D9D9] uppercase tracking-wider font-semibold">Forecast</div>
+              <div className="text-xl font-bold text-white">EOM Projection</div>
             </div>
-            <div className={`rounded-xl border px-3 py-2 text-xs font-semibold ${forecastPill.color}`}>
+            <div className={`px-4 py-2 rounded-xl text-xs font-bold border-2 ${forecastPill.color} glass-card transition-all group-hover:scale-110`}>
               {forecastPill.label}
             </div>
           </div>
 
-          <div className="mt-4 space-y-3">
-            <div className="flex items-center justify-between text-sm text-zinc-200">
-              <span>Projected total</span>
-              <span className="tabular-nums font-semibold">
-                ${forecast.projected_total_usd.toFixed(2)}
-              </span>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between py-2 border-b border-[#D9D9D9]/20">
+              <span className="text-sm text-[#D9D9D9]">Projected total</span>
+              <span className="text-lg font-bold tabular-nums text-white">${forecast.projected_total_usd.toFixed(2)}</span>
             </div>
-            <div className="flex items-center justify-between text-sm text-zinc-200">
-              <span>Days remaining</span>
-              <span className="tabular-nums font-semibold">{forecast.days_remaining}</span>
+            <div className="flex items-center justify-between py-2 border-b border-[#D9D9D9]/20">
+              <span className="text-sm text-[#D9D9D9]">Days remaining</span>
+              <span className="text-lg font-bold tabular-nums text-white">{forecast.days_remaining}</span>
             </div>
-            <div className="flex items-center justify-between text-sm text-zinc-200">
-              <span>Budget usage</span>
-              <span className="tabular-nums font-semibold">{forecast.pct_of_budget.toFixed(0)}%</span>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-[#D9D9D9]">Budget usage</span>
+              <span className="text-lg font-bold tabular-nums text-white">{forecast.pct_of_budget.toFixed(0)}%</span>
             </div>
-            <div className="h-2 rounded-full bg-zinc-900 overflow-hidden">
-              <div
-                className="h-full bg-zinc-200"
-                style={{ width: `${Math.min(100, Math.max(0, forecast.pct_of_budget))}%` }}
+            <div className="h-3 rounded-full bg-[#D9D9D9]/20 overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-[#3C6E71] to-[#284B63] rounded-full" 
+                style={{ width: `${Math.min(100, forecast.pct_of_budget)}%` }} 
               />
             </div>
           </div>
         </section>
 
         {/* Anomalies */}
-        <section className="xl:col-span-3 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5">
-          <div className="flex items-center justify-between gap-4">
+        <section className="xl:col-span-3 glass-card p-8 rounded-3xl hover:shadow-3xl transition-all duration-300" title="Unusual spending spikes detected by AI">
+          <div className="flex items-center justify-between gap-6 mb-6">
             <div>
-              <div className="text-sm text-zinc-400">Anomaly Details</div>
-              <div className="text-xl font-semibold">Spending spikes</div>
+              <div className="text-sm text-[#D9D9D9] uppercase tracking-wider font-semibold">Anomalies</div>
+              <div className="text-xl font-bold text-white">Spending spikes</div>
             </div>
-            <div className="text-sm text-zinc-500">{anomalies.length ? `${anomalies.length} flagged` : "No anomalies detected"}</div>
+            <div className={`px-4 py-2 rounded-xl text-sm font-bold text-white ${anomalies.length ? 'bg-[#3C6E71]/80' : 'bg-[#D9D9D9]/20 text-[#D9D9D9]'}`}>
+              {anomalies.length ? `${anomalies.length} flagged` : "No anomalies"}
+            </div>
           </div>
 
           {anomalies.length ? (
-            <div className="mt-4 overflow-x-auto">
+            <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="text-left text-xs text-zinc-500">
-                  <tr>
-                    <th className="py-2">Date</th>
-                    <th className="py-2">Spike amount</th>
-                    <th className="py-2">Severity</th>
+                <thead>
+                  <tr className="border-b border-[#D9D9D9]/20">
+                    <th className="py-4 text-left text-[#D9D9D9] font-semibold">Date</th>
+                    <th className="py-4 text-left text-[#D9D9D9] font-semibold">Spike Amount</th>
+                    <th className="py-4 text-left text-[#D9D9D9] font-semibold">Severity</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-800">
-                  {anomalies.map((a) => {
+                <tbody className="divide-y divide-[#D9D9D9]/10">
+                  {anomalies.map((a, i) => {
                     const spike = a.spend - a.rolling_avg;
-                    const badge =
-                      a.severity === "critical"
-                        ? "border-red-900 bg-red-950/50 text-red-200"
-                        : "border-amber-900 bg-amber-950/50 text-amber-200";
-
+                    const severity = a.severity === "critical" ? "CRITICAL" : "WARNING";
+                    const color = a.severity === "critical" ? "text-red-400 border-red-500/30 bg-red-500/10" : "text-amber-400 border-amber-500/30 bg-amber-500/10";
                     return (
-                      <tr key={a.date}>
-                        <td className="py-3 text-zinc-100 tabular-nums">{a.date}</td>
-                        <td className="py-3 text-zinc-200 tabular-nums">${spike.toFixed(2)}</td>
-                        <td className="py-3">
-                          <span className={`inline-flex items-center rounded-xl border px-3 py-1 text-xs font-semibold ${badge}`}>
-                            {a.severity.toUpperCase()}
+                      <tr key={a.date} className={`glass-card hover:bg-[#284B63]/20 transition-colors ${i % 2 ? 'bg-[#284B63]/10' : ''}`}>
+                        <td className="py-4 tabular-nums text-white font-mono">{a.date}</td>
+                        <td className="py-4 tabular-nums text-white font-semibold">${spike.toFixed(2)}</td>
+                        <td className="py-4">
+                          <span className={`px-3 py-1 rounded-full text-xs font-bold border ${color}`}>
+                            {severity}
                           </span>
                         </td>
                       </tr>
@@ -379,105 +367,119 @@ export default async function DashboardPage({
                 </tbody>
               </table>
             </div>
-          ) : null}
+          ) : (
+            <div className="glass-card p-12 rounded-2xl text-center text-[#D9D9D9]">
+              <div className="text-4xl mb-4">🎉</div>
+              <div>No anomalies detected. Your spending looks healthy!</div>
+            </div>
+          )}
         </section>
 
-        {/* Drill Down */}
-        <section className="xl:col-span-3 rounded-2xl border border-zinc-800 bg-zinc-950/40 p-5">
-          <div className="flex items-start justify-between gap-4">
+        {/* Usage Table */}
+        <section className="xl:col-span-3 glass-card p-8 rounded-3xl hover:shadow-3xl transition-all duration-300" title="Detailed usage records with filters">
+          <div className="flex items-start justify-between gap-6 mb-8">
             <div>
-              <div className="text-sm text-zinc-400">Drill Down</div>
-              <div className="text-xl font-semibold">Usage records</div>
+              <div className="text-sm text-[#D9D9D9] uppercase tracking-wider font-semibold">Drill Down</div>
+              <div className="text-xl font-bold text-white">Model Usage Details</div>
             </div>
           </div>
 
-          <form method="GET" className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+          {/* Filters */}
+          <form method="GET" className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8 p-6 glass-card rounded-2xl border border-[#D9D9D9]/20">
             <div className="space-y-2">
-              <label className="text-xs text-zinc-500">Provider</label>
+              <label className="text-xs text-[#D9D9D9] font-medium">Provider</label>
               <select
                 name="provider"
                 defaultValue={providerIdParam}
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-zinc-100"
+                className="w-full glass-card px-4 py-3 rounded-xl border border-[#D9D9D9]/30 text-white focus:border-[#3C6E71] focus:outline-none transition-all"
               >
-                <option value="all">All providers</option>
+                <option value="all">All Providers</option>
                 {(providerRows ?? []).map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.display_name ?? p.provider_name}
-                  </option>
+                  <option key={p.id} value={p.id}>{p.display_name ?? p.provider_name}</option>
                 ))}
               </select>
             </div>
-
             <div className="space-y-2">
-              <label className="text-xs text-zinc-500">From</label>
+              <label className="text-xs text-[#D9D9D9] font-medium">From</label>
               <input
                 type="date"
                 name="from"
                 defaultValue={from}
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-zinc-100"
+                className="w-full glass-card px-4 py-3 rounded-xl border border-[#D9D9D9]/30 text-white focus:border-[#3C6E71] focus:outline-none transition-all"
               />
             </div>
-
             <div className="space-y-2">
-              <label className="text-xs text-zinc-500">To</label>
+              <label className="text-xs text-[#D9D9D9] font-medium">To</label>
               <input
                 type="date"
                 name="to"
                 defaultValue={to}
-                className="w-full rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-zinc-100"
+                className="w-full glass-card px-4 py-3 rounded-xl border border-[#D9D9D9]/30 text-white focus:border-[#3C6E71] focus:outline-none transition-all"
               />
             </div>
-
-            <div className="space-y-2">
+            <div className="space-y-2 md:col-span-1">
               <button
                 type="submit"
-                className="w-full rounded-xl bg-zinc-50 text-zinc-950 font-medium py-2"
+                className="premium-btn w-full py-3 px-6 rounded-xl font-semibold text-sm uppercase tracking-wide shadow-2xl hover:shadow-3xl transform hover:-translate-y-1 transition-all duration-300"
               >
-                Apply
+                Apply Filters
               </button>
             </div>
           </form>
 
-          <div className="mt-4 overflow-x-auto">
+          {/* Table */}
+          <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="text-left text-xs text-zinc-500">
-                <tr>
-                  <th className="py-2">Date</th>
-                  <th className="py-2">Provider</th>
-                  <th className="py-2">Model</th>
-                  <th className="py-2">Tokens</th>
-                  <th className="py-2">Source</th>
-                  <th className="py-2">Cost</th>
+              <thead>
+                <tr className="border-b border-[#D9D9D9]/20">
+                  <th className="py-4 text-left text-[#D9D9D9] font-semibold">Date</th>
+                  <th className="py-4 text-left text-[#D9D9D9] font-semibold">Provider</th>
+                  <th className="py-4 text-left text-[#D9D9D9] font-semibold">Model</th>
+                  <th className="py-4 text-left text-[#D9D9D9] font-semibold">Tokens</th>
+                  <th className="py-4 text-left text-[#D9D9D9] font-semibold">Source</th>
+                  <th className="py-4 text-left text-[#D9D9D9] font-semibold">Cost</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-800">
+              <tbody className="divide-y divide-[#D9D9D9]/10">
                 {drillRows.length ? (
-                  drillRows.map((r) => (
-                    <tr key={`${r.date}-${r.providerKey}-${r.model}-${r.source}-${r.tokens}`}>
-                      <td className="py-3 text-zinc-200 tabular-nums">{r.date}</td>
-                      <td className="py-3 text-zinc-100">{r.provider}</td>
-                      <td className="py-3 text-zinc-300">{r.model}</td>
-                      <td className="py-3 text-zinc-200 tabular-nums">{r.tokens.toLocaleString()}</td>
-                      <td className="py-3">
+                  drillRows.map((r, i) => (
+                    <tr 
+                      key={`${r.date}-${r.providerKey}-${r.model}-${r.source}`} 
+                      className={`glass-card hover:bg-[#284B63]/30 transition-all duration-200 ${i % 2 ? 'bg-[#284B63]/5' : ''}`}
+                    >
+                      <td className="py-5 tabular-nums text-white font-mono" title={r.date}>{r.date}</td>
+                      <td className="py-5 text-[#D9D9D9] font-semibold" title={r.provider}>{r.provider}</td>
+                      <td className="py-5 text-white/80" title={r.model}>{r.model}</td>
+                      <td className="py-5 tabular-nums text-[#D9D9D9] font-mono" title={`${r.tokens.toLocaleString()} tokens`}>{r.tokens.toLocaleString()}</td>
+                      <td className="py-5">
                         <span
-                          className={`inline-flex items-center rounded-xl border px-3 py-1 text-xs font-semibold ${
+                          className={`px-3 py-1 rounded-full text-xs font-bold border ${
                             r.source === "sdk"
-                              ? "border-zinc-700 bg-zinc-900 text-zinc-100"
-                              : "border-zinc-800 bg-zinc-950 text-zinc-100"
+                              ? "border-[#3C6E71] bg-[#3C6E71]/20 text-[#3C6E71]"
+                              : "border-[#D9D9D9]/50 bg-[#D9D9D9]/10 text-[#D9D9D9]"
                           }`}
+                          title={r.source === 'sdk' ? 'SDK ingestion' : 'Cron sync'}
                         >
-                          {r.source}
+                          {r.source.toUpperCase()}
                         </span>
                       </td>
-                      <td className="py-3 text-zinc-200 tabular-nums">
-                        {r.cost == null ? "—" : `$${Number(r.cost).toFixed(4)}`}
+                      <td className="py-5 tabular-nums font-mono text-white font-semibold">
+                        {r.cost == null ? (
+                          <span className="text-[#D9D9D9]">-</span>
+                        ) : (
+                          <span title={`$${Number(r.cost).toFixed(4)}`} className="text-[#3C6E71]">${Number(r.cost).toFixed(4)}</span>
+                        )}
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={6} className="py-5 text-center text-zinc-500">
-                      No usage records found for the selected filters.
+                    <td colSpan={6} className="py-16 text-center">
+                      <div className="glass-card p-12 rounded-3xl mx-auto max-w-md text-[#D9D9D9]">
+                        <div className="text-5xl mb-4">🔍</div>
+                        <div className="text-lg font-semibold text-white mb-2">No usage records</div>
+                        <div>Try adjusting filters or connect your first AI provider</div>
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -485,50 +487,40 @@ export default async function DashboardPage({
             </table>
           </div>
 
-          <div className="mt-4 flex items-center justify-between gap-4">
-            <div className="text-sm text-zinc-500">
-              Page {page} of {pageCount} ({totalRows} records)
+          {/* Pagination */}
+          {totalRows > pageSize && (
+            <div className="mt-8 flex items-center justify-between gap-4 glass-card p-4 rounded-2xl">
+              <div className="text-sm text-[#D9D9D9]">
+                Page {page} of {pageCount} ({totalRows.toLocaleString()} total records)
+              </div>
+              <div className="flex items-center gap-2">
+                {page > 1 ? (
+                  <Link
+                    href={{
+                      pathname: "/dashboard",
+                      query: { provider: providerIdFilter ?? "all", from, to, page: page - 1 },
+                    }}
+                    className="premium-btn px-4 py-2 text-sm font-semibold"
+                  >
+                    ← Prev
+                  </Link>
+                ) : null}
+                {page < pageCount ? (
+                  <Link
+                    href={{
+                      pathname: "/dashboard",
+                      query: { provider: providerIdFilter ?? "all", from, to, page: page + 1 },
+                    }}
+                    className="premium-btn px-4 py-2 text-sm font-semibold"
+                  >
+                    Next →
+                  </Link>
+                ) : null}
+              </div>
             </div>
-
-            <div className="flex items-center gap-3">
-              {page > 1 ? (
-                <Link
-                  href={{
-                    pathname: "/dashboard",
-                    query: {
-                      provider: providerIdFilter ?? "all",
-                      from,
-                      to,
-                      page: page - 1,
-                    },
-                  }}
-                  className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-900"
-                >
-                  Prev
-                </Link>
-              ) : null}
-
-              {page < pageCount ? (
-                <Link
-                  href={{
-                    pathname: "/dashboard",
-                    query: {
-                      provider: providerIdFilter ?? "all",
-                      from,
-                      to,
-                      page: page + 1,
-                    },
-                  }}
-                  className="rounded-xl border border-zinc-800 bg-zinc-950/40 px-3 py-2 text-sm text-zinc-100 hover:bg-zinc-900"
-                >
-                  Next
-                </Link>
-              ) : null}
-            </div>
-          </div>
+          )}
         </section>
       </div>
     </div>
   );
 }
-

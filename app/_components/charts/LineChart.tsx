@@ -5,7 +5,7 @@ export default function LineChart(props: {
   height?: number;
   stroke?: string;
 }) {
-  const { points, height = 220, stroke = "#a1a1aa" } = props;
+  const { points, height = 220, stroke = '#3C6E71' } = props;
   const width = 680;
 
   const ys = points.map((p) => p.y).filter((n) => Number.isFinite(n));
@@ -39,27 +39,27 @@ export default function LineChart(props: {
   const lastLabel = last ? last.x.slice(5) : "";
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <svg width="100%" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
         <defs>
           <linearGradient id="line-fill" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor={stroke} stopOpacity="0.25" />
+            <stop offset="0%" stopColor={stroke} stopOpacity="0.4" />
             <stop offset="100%" stopColor={stroke} stopOpacity="0" />
           </linearGradient>
         </defs>
 
         {/* Grid */}
-        {[0, 1, 2, 3].map((i) => {
-          const y = padTop + (i / 3) * innerH;
+        {[0.25, 0.5, 0.75, 1].map((t) => {
+          const y = padTop + t * innerH;
           return (
             <line
-              key={i}
+              key={t}
               x1={padLeft}
               x2={width - padRight}
               y1={y}
               y2={y}
-              stroke="#3f3f46"
-              strokeOpacity="0.35"
+              stroke="#D9D9D9"
+              strokeOpacity="0.3"
               strokeWidth="1"
             />
           );
@@ -74,19 +74,23 @@ export default function LineChart(props: {
         ) : null}
 
         {/* Line */}
-        <path d={d} fill="none" stroke={stroke} strokeWidth="2.5" />
+        {points.length ? (
+          <path d={d} fill="none" stroke={stroke} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+        ) : null}
 
         {/* Points */}
         {points.map((p, i) => (
-          <circle key={p.x} cx={xAt(i)} cy={yAt(p.y)} r={3.2} fill={stroke} stroke="#09090b" strokeWidth="2" />
+          <g key={p.x}>
+            <circle cx={xAt(i)} cy={yAt(p.y)} r={4} fill={stroke} stroke="rgba(255,255,255,0.9)" strokeWidth="2.5" />
+            <circle cx={xAt(i)} cy={yAt(p.y)} r={2} fill={stroke} />
+          </g>
         ))}
       </svg>
 
-      <div className="flex items-center justify-between text-xs text-zinc-500">
-        <span>{points[0]?.x ?? ""}</span>
-        <span>{lastLabel ? `Last: ${lastLabel}` : ""}</span>
+      <div className="flex items-center justify-between text-xs text-[#D9D9D9]">
+        <span title="Start date">{points[0]?.x ?? ""}</span>
+        <span title="End date">{lastLabel ? `Last: ${lastLabel}` : ""}</span>
       </div>
     </div>
   );
 }
-

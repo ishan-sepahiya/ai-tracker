@@ -34,6 +34,13 @@ async function getAuthedUser() {
   return data.user ?? null;
 }
 
+const NotificationsIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+  </svg>
+);
+
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const user = await getAuthedUser();
   if (!user) redirect("/login");
@@ -81,68 +88,78 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   const progressPct = monthlyLimit > 0 ? Math.min(100, (monthSpend / monthlyLimit) * 100) : 0;
 
-  const routes: Array<{ href: string; label: string }> = [
-    { href: "/dashboard", label: "Dashboard" },
-    { href: "/dashboard/providers", label: "Providers" },
-    { href: "/dashboard/budget", label: "Budget" },
-    { href: "/dashboard/alerts", label: "Alerts" },
-    { href: "/dashboard/team", label: "Team" },
-    { href: "/dashboard/billing", label: "Billing" },
-    { href: "/dashboard/settings", label: "Settings" },
+  const routes: Array<{ href: string; label: string; icon?: string }> = [
+    { href: "/dashboard", label: "Dashboard", icon: "📊" },
+    { href: "/dashboard/usage", label: "Usage", icon: "📈" },
+    { href: "/dashboard/providers", label: "Providers", icon: "🔌" },
+    { href: "/dashboard/billing", label: "Billing", icon: "💳" },
+    { href: "/dashboard/settings", label: "Settings", icon: "⚙️" },
   ];
 
   return (
-    <div className="min-h-screen bg-black text-zinc-50">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="py-6">
-          <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
-            <aside className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
-              <div className="text-sm text-zinc-400 mb-4">This month</div>
-              <div className="text-2xl font-semibold tabular-nums">${monthSpend.toFixed(2)}</div>
-              <div className="text-xs text-zinc-500 mt-1">
-                of ${monthlyLimit.toFixed(2)} budget
+    <div className="min-h-screen glass-card border-0 shadow-2xl">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-full">
+        <div className="py-8 h-full">
+          <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] xl:grid-cols-[320px_1fr] gap-8 h-full">
+            {/* Sidebar */}
+            <aside className="glass-card rounded-3xl p-6 space-y-6 border border-[#D9D9D9]/30 hover:shadow-3xl transition-all duration-300 lg:sticky top-8 h-fit">
+              <div title="This month spend">
+                <div className="text-xs text-[#D9D9D9] uppercase tracking-wider font-semibold mb-2">Current Month</div>
+                <div className="text-3xl font-bold tabular-nums text-white mb-2">${monthSpend.toFixed(2)}</div>
+                <div className="text-xs text-[#D9D9D9] mb-4">of ${monthlyLimit.toFixed(2)} budget</div>
+                <div className="h-2 rounded-full bg-[#D9D9D9]/20 overflow-hidden">
+                  <div
+                    className="h-full bg-[#3C6E71] rounded-full transition-all duration-700"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
               </div>
 
-              <div className="mt-4 h-2 rounded-full bg-zinc-900 overflow-hidden">
-                <div
-                  className="h-full bg-zinc-200"
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
-
-              <div className="mt-5 border-t border-zinc-800 pt-4 space-y-2">
+              <nav className="space-y-1">
                 {routes.map((r) => (
                   <Link
                     key={r.href}
                     href={r.href}
-                    className="block rounded-xl border border-transparent hover:border-zinc-800 px-3 py-2 text-sm text-zinc-200 hover:text-zinc-50"
+                    className="glass-card flex items-center gap-3 p-4 rounded-2xl text-[#D9D9D9] hover:text-white hover:bg-[#3C6E71]/30 border border-[#D9D9D9]/20 hover:border-[#3C6E71]/50 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group"
                   >
-                    {r.label}
+                    <span className="text-lg">{r.icon}</span>
+                    <span className="font-medium group-hover:translate-x-1 transition-transform">{r.label}</span>
                   </Link>
                 ))}
-              </div>
+              </nav>
             </aside>
 
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/40 overflow-hidden">
-              <div className="p-4 sm:p-6 border-b border-zinc-800 flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-3">
-                    <div className="text-sm text-zinc-400 truncate">Signed in</div>
-                    <div className="text-sm font-medium text-zinc-50 truncate">
-                      {profile?.email ?? user.email ?? ""}
+            {/* Main Content */}
+            <div className="glass-card rounded-3xl overflow-hidden border border-[#D9D9D9]/30 shadow-2xl">
+              {/* Top Bar */}
+              <div className="glass-card p-6 border-b border-[#D9D9D9]/20">
+                <div className="flex items-center justify-between">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-3">
+                      <div className="text-sm text-[#D9D9D9] truncate">Signed in as</div>
+                      <div className="text-sm font-semibold text-white truncate max-w-[300px]">
+                        {profile?.email ?? user.email ?? ""}
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-3">
-                  <div className="rounded-xl border border-zinc-800 bg-black px-3 py-2 text-sm text-zinc-100">
-                    Plan: <span className="font-semibold">{planLabel}</span>
+                  <div className="flex items-center gap-4">
+                    <button 
+                      title="Notifications" 
+                      className="p-2 text-[#D9D9D9] hover:text-white hover:bg-[#3C6E71]/30 rounded-xl transition-all duration-200 hover:scale-110"
+                    >
+                      <NotificationsIcon />
+                    </button>
+                    <div className="glass-card px-4 py-2 text-sm text-[#D9D9D9]">
+                      Plan: <span className="font-bold text-white">{planLabel}</span>
+                    </div>
+                    <SignOutButton />
                   </div>
-                  <SignOutButton />
                 </div>
               </div>
 
-              <main className="p-4 sm:p-6">{children}</main>
+              {/* Content */}
+              <main className="p-8">{children}</main>
             </div>
           </div>
         </div>
@@ -150,4 +167,3 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     </div>
   );
 }
-

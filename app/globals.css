@@ -1,8 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #353535;
+  --foreground: #FFFFFF;
+  /* Required Palette */
+  --primary-bg: #353535;
+  --accent: #3C6E71;
+  --accent-secondary: #284B63;
+  --text-primary: #FFFFFF;
+  --text-secondary: #D9D9D9;
+  --border: #D9D9D9;
 }
 
 @theme inline {
@@ -12,15 +19,35 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* Glassmorphism Cards */
+.glass-card {
+  background: rgba(40, 75, 99, 0.3); /* #284B63 / 30% */
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(217, 217, 217, 0.5);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* Buttons */
+.premium-btn {
+  background: var(--accent);
+  color: var(--text-primary);
+  transition: all 0.3s ease;
+}
+.premium-btn:hover {
+  background: var(--accent-secondary);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(60, 110, 113, 0.4);
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #353535;
+    --foreground: #FFFFFF;
   }
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--primary-bg);
+  color: var(--text-primary);
   font-family: Arial, Helvetica, sans-serif;
 }

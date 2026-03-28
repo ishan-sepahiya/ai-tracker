@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI Spend Tracker - Track your AI costs across providers",
-  description: "Track and analyze your AI model usage and costs across OpenAI, Anthropic, AWS Bedrock, and GCP Vertex.",
+  title: "AI Spend Tracker - Track, Control & Optimize Your AI Spending",
+  description: "Unified dashboard for monitoring AI API usage across OpenAI, Anthropic, AWS Bedrock, GCP Vertex and more. Track tokens, costs, budgets in one place.",
 };
 
 export default function RootLayout({
@@ -27,7 +27,9 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-screen bg-[#353535] text-white flex flex-col font-sans">
+        {children}
+      </body>
     </html>
   );
 }
