@@ -150,7 +150,7 @@ export default function Home() {
                         <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
                           <div 
                             className={`h-full bg-gradient-to-r ${stat.color} rounded-full shadow-inner transition-all duration-700 animate-pulse`} 
-                            style={{width: i === 3 ? '60%' : '85%'}}
+                            style={{width: i === 3 ? '60%' : '85%"}}
                           ></div>
                         </div>
                       </div>
@@ -170,10 +170,10 @@ export default function Home() {
                       </div>
                       <div className="flex-1 space-y-4">
                         <div className="space-y-1">
-                          <div className="h-2 bg-gradient-to-r from-indigo-400 to-blue-500 rounded-full animate-metric-bar" style="animation-delay: 0s"></div>
-                          <div className="h-3 bg-gradient-to-r from-purple-400 to-indigo-500/70 rounded-full animate-metric-bar" style="animation-delay: 0.2s"></div>
-                          <div className="h-4 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full animate-metric-bar" style="animation-delay: 0.4s"></div>
-                          <div className="h-2.5 bg-gradient-to-r from-indigo-500 to-sky-400/80 rounded-full animate-metric-bar" style="animation-delay: 0.6s"></div>
+                          <div className="h-2 bg-gradient-to-r from-indigo-400 to-blue-500 rounded-full animate-pulse" style={{animationDelay: '0s'}}></div>
+                          <div className="h-3 bg-gradient-to-r from-purple-400 to-indigo-500/70 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                          <div className="h-4 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+                          <div className="h-2.5 bg-gradient-to-r from-indigo-500 to-sky-400/80 rounded-full animate-pulse" style={{animationDelay: '0.6s'}}></div>
                         </div>
                       </div>
                     </div>
@@ -197,29 +197,7 @@ export default function Home() {
                   </div>
                 </div>
 
-                <style jsx>{`
-                  @keyframes shimmer {
-                    0% { transform: translateX(-100%); }
-                    100% { transform: translateX(100%); }
-                  }
-                  .animate-shimmer {
-                    animation: shimmer 2s infinite linear;
-                  }
-                  @keyframes metric-bar {
-                    0%, 100% { width: 0%; }
-                    50% { width: 85%; }
-                  }
-                  .animate-metric-bar {
-                    animation: metric-bar 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-                  }
-                  @keyframes spin-slow {
-                    from { transform: rotate(0deg); }
-                    to { transform: rotate(360deg); }
-                  }
-                  .animate-spin-slow {
-                    animation: spin-slow 20s linear infinite;
-                  }
-                `}</style>
+
 
                 {/* Fake Table */}
                 <div className="glass-card rounded-2xl shadow-lg overflow-hidden border border-gray-600/50">
