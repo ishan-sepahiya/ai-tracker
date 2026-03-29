@@ -1,8 +1,7 @@
 // next.config.js
 const nextConfig = {
-  experimental: {
-    turbo: false,
-  },
+  output: 'standalone',
+
 };
 
 export default nextConfig;

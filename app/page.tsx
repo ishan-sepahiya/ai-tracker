@@ -1,24 +1,24 @@
 "use client";
 
-import Link from 'next/link';
+import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-[#353535] text-white">
+    <div className="min-h-screen bg-alabaster-grey text-ink-black font-sans antialiased">
       {/* 1. HERO */}
       <section className="min-h-screen relative flex flex-col justify-center items-center py-24 px-6 text-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#3C6E71]/10 via-[#284B63]/5 to-transparent animate-pulse opacity-75 pointer-events-none"></div>
-        <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-[#3C6E71]/20 rounded-full blur-3xl animate-pulse opacity-60"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#284B63]/20 rounded-full blur-3xl animate-pulse delay-1000 opacity-50"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-dusk-blue/5 via-prussian-blue/3 to-transparent"></div>
+        <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-dusk-blue/10 rounded-full blur-3xl opacity-70 animate-pulse"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-prussian-blue/10 rounded-full blur-3xl opacity-60 animate-pulse delay-1000"></div>
         <div className="max-w-4xl mx-auto space-y-8 relative z-10">
           <div className="glass-card p-12 rounded-3xl shadow-2xl backdrop-blur-xl max-w-3xl mx-auto border border-[#D9D9D9]/30 shadow-[#3C6E71]/20">
-            <h1 className="text-5xl md:text-7xl font-bold leading-tight mb-8">
+            <h1 className="text-5xl md:text-7xl font-bold leading-tight mb-8 bg-gradient-to-r from-ink-black via-dusk-blue to-prussian-blue bg-clip-text text-transparent">
               Track, Control & Optimize
-              <span className="block bg-gradient-to-r from-[#3C6E71] to-[#284B63] bg-clip-text text-transparent mt-4">
+              <span className="block bg-gradient-to-r from-dusk-blue via-prussian-blue to-ink-black bg-clip-text mt-4">
                 Your AI Spending
               </span>
             </h1>
-            <p className="text-xl md:text-2xl text-gray-300 leading-relaxed max-w-2xl mx-auto mb-12">
+            <p className="text-xl md:text-2xl text-dusty-denim leading-relaxed max-w-2xl mx-auto mb-12">
               Unified dashboard for monitoring AI API costs across OpenAI, Anthropic, Bedrock, 
               Vertex AI and more. Never overspend again.
             </p>
@@ -28,7 +28,7 @@ export default function Home() {
                   Get Started - Free
                 </div>
               </Link>
-              <Link href="#features" className="px-12 py-6 border-2 border-gray-500/50 hover:bg-[#284B63]/50 text-lg font-semibold rounded-2xl hover:scale-105 transition-all duration-300">
+              <Link href="#features" className="px-12 py-6 border-2 border-dusty-denim/50 hover:bg-prussian-blue/30 text-lg font-semibold rounded-2xl hover:scale-105 transition-all duration-300 text-ink-black hover:text-alabaster-grey">
                 Watch Demo
               </Link>
             </div>
@@ -40,11 +40,11 @@ export default function Home() {
       <section className="py-20 px-6">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-24 max-w-4xl mx-auto">
-            <h2 className="text-4xl md:text-6xl lg:text-7xl font-black bg-gradient-to-r from-white via-gray-100 to-gray-300 bg-clip-text text-transparent mb-8 drop-shadow-2xl leading-tight">
+            <h2 className="text-4xl md:text-6xl lg:text-7xl font-black bg-gradient-to-r from-ink-black via-dusk-blue to-prussian-blue bg-clip-text text-transparent mb-8 drop-shadow-2xl leading-tight">
               Built for teams who spend on AI
             </h2>
             <div className="max-w-2xl mx-auto">
-              <p className="text-xl md:text-2xl text-gray-300 leading-relaxed font-light">
+              <p className="text-xl md:text-2xl text-dusty-denim leading-relaxed font-light">
                 Complete visibility and control over your AI costs in one beautiful dashboard.
               </p>
             </div>
