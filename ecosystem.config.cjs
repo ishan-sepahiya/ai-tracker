@@ -3,8 +3,8 @@ module.exports = {
     {
       name: "ai-traker",
       cwd: "/home/ubuntu/ai-tracker",
-      script: "scripts/start-standalone.sh",
-      interpreter: "/bin/bash",
+      script: "npm",
+      args: "start",
       env: {
         NODE_ENV: "production",
         HOSTNAME: "0.0.0.0",
@@ -16,4 +16,3 @@ module.exports = {
     },
   ],
 };
-
