@@ -97,19 +97,19 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   ];
 
   return (
-    <div className="min-h-screen glass-card border-0 shadow-2xl">
+    <div className="min-h-screen bg-[#FEFEFE]">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-full">
         <div className="py-8 h-full">
           <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] xl:grid-cols-[320px_1fr] gap-8 h-full">
             {/* Sidebar */}
-            <aside className="glass-card rounded-3xl p-6 space-y-6 border border-[#D9D9D9]/30 hover:shadow-3xl transition-all duration-300 lg:sticky top-8 h-fit">
+            <aside className="bg-[#476E66] text-white rounded-2xl p-6 space-y-6 border border-[#DFDFE2] shadow-sm lg:sticky top-8 h-fit">
               <div title="This month spend">
-                <div className="text-xs text-[#D9D9D9] uppercase tracking-wider font-semibold mb-2">Current Month</div>
+                <div className="text-xs text-white/80 uppercase tracking-wider font-semibold mb-2">Current Month</div>
                 <div className="text-3xl font-bold tabular-nums text-white mb-2">${monthSpend.toFixed(2)}</div>
-                <div className="text-xs text-[#D9D9D9] mb-4">of ${monthlyLimit.toFixed(2)} budget</div>
-                <div className="h-2 rounded-full bg-[#D9D9D9]/20 overflow-hidden">
+                <div className="text-xs text-white/80 mb-4">of ${monthlyLimit.toFixed(2)} budget</div>
+                <div className="h-2 rounded-full bg-white/20 overflow-hidden">
                   <div
-                    className="h-full bg-[#3C6E71] rounded-full transition-all duration-700"
+                    className="h-full bg-[#708A83] rounded-full transition-all duration-700"
                     style={{ width: `${progressPct}%` }}
                   />
                 </div>
@@ -120,7 +120,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
                   <Link
                     key={r.href}
                     href={r.href}
-                    className="glass-card flex items-center gap-3 p-4 rounded-2xl text-[#D9D9D9] hover:text-white hover:bg-[#3C6E71]/30 border border-[#D9D9D9]/20 hover:border-[#3C6E71]/50 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl group"
+                    className="bg-white/10 hover:bg-[#708A83] flex items-center gap-3 p-4 rounded-xl text-white hover:text-white border border-white/20 hover:border-white/40 transition-all duration-300 hover:scale-[1.02] group"
                   >
                     <span className="text-lg">{r.icon}</span>
                     <span className="font-medium group-hover:translate-x-1 transition-transform">{r.label}</span>
@@ -130,14 +130,14 @@ export default async function DashboardLayout({ children }: { children: ReactNod
             </aside>
 
             {/* Main Content */}
-            <div className="glass-card rounded-3xl overflow-hidden border border-[#D9D9D9]/30 shadow-2xl">
+            <div className="bg-white rounded-2xl border border-[#DFDFE2] shadow-sm overflow-hidden">
               {/* Top Bar */}
-              <div className="glass-card p-6 border-b border-[#D9D9D9]/20">
+              <div className="bg-[#F4F4F4] p-6 border-b border-[#DFDFE2]">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0">
                     <div className="flex items-center gap-3">
-                      <div className="text-sm text-[#D9D9D9] truncate">Signed in as</div>
-                      <div className="text-sm font-semibold text-white truncate max-w-[300px]">
+                      <div className="text-sm text-[#BEC0BF] truncate">Signed in as</div>
+                      <div className="text-sm font-semibold text-[#111111] truncate max-w-[300px]">
                         {profile?.email ?? user.email ?? ""}
                       </div>
                     </div>
@@ -146,12 +146,12 @@ export default async function DashboardLayout({ children }: { children: ReactNod
                   <div className="flex items-center gap-4">
                     <button 
                       title="Notifications" 
-                      className="p-2 text-[#D9D9D9] hover:text-white hover:bg-[#3C6E71]/30 rounded-xl transition-all duration-200 hover:scale-110"
+                      className="p-2 text-[#BEC0BF] hover:text-[#708A83] hover:bg-[#708A83]/20 rounded-xl transition-all duration-200 hover:scale-110"
                     >
                       <NotificationsIcon />
                     </button>
-                    <div className="glass-card px-4 py-2 text-sm text-[#D9D9D9]">
-                      Plan: <span className="font-bold text-white">{planLabel}</span>
+                    <div className="bg-white/50 backdrop-blur-sm px-4 py-2 text-sm text-[#BEC0BF] rounded-xl border border-[#DFDFE2]">
+                      Plan: <span className="font-bold text-[#111111]">{planLabel}</span>
                     </div>
                     <SignOutButton />
                   </div>

@@ -4,31 +4,31 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-alabaster-grey text-ink-black font-sans antialiased">
+    <div className="min-h-screen bg-[#FEFEFE] text-[#111111] font-sans antialiased">
       {/* 1. HERO */}
       <section className="min-h-screen relative flex flex-col justify-center items-center py-24 px-6 text-center overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-dusk-blue/5 via-prussian-blue/3 to-transparent"></div>
-        <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-dusk-blue/10 rounded-full blur-3xl opacity-70 animate-pulse"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-prussian-blue/10 rounded-full blur-3xl opacity-60 animate-pulse delay-1000"></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-[#708A83]/5 to-transparent"></div>
+        <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-[#708A83]/10 rounded-full blur-3xl opacity-70 animate-pulse"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#476E66]/10 rounded-full blur-3xl opacity-60 animate-pulse delay-1000"></div>
         <div className="max-w-4xl mx-auto space-y-8 relative z-10">
-          <div className="glass-card p-12 rounded-3xl shadow-2xl backdrop-blur-xl max-w-3xl mx-auto border border-[#D9D9D9]/30 shadow-[#3C6E71]/20">
-            <h1 className="text-5xl md:text-7xl font-bold leading-tight mb-8 bg-gradient-to-r from-ink-black via-dusk-blue to-prussian-blue bg-clip-text text-transparent">
+          <div className="bg-white rounded-2xl border border-[#DFDFE2] shadow-sm p-6 max-w-3xl mx-auto">
+            <h1 className="text-2xl font-semibold leading-tight mb-8 text-[#111111]">
               Track, Control & Optimize
-              <span className="block bg-gradient-to-r from-dusk-blue via-prussian-blue to-ink-black bg-clip-text mt-4">
+              <span className="block text-[#708A83] mt-4">
                 Your AI Spending
               </span>
             </h1>
-            <p className="text-xl md:text-2xl text-dusty-denim leading-relaxed max-w-2xl mx-auto mb-12">
+            <p className="text-lg text-[#BEC0BF] leading-relaxed max-w-2xl mx-auto mb-12">
               Unified dashboard for monitoring AI API costs across OpenAI, Anthropic, Bedrock, 
               Vertex AI and more. Never overspend again.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/dashboard">
-                <div className="premium-btn px-12 py-6 text-lg font-semibold rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300">
+                <div className="bg-[#708A83] text-white hover:bg-[#476E66] rounded-xl py-3 px-6 transition-all font-semibold text-center">
                   Get Started - Free
                 </div>
               </Link>
-              <Link href="#features" className="px-12 py-6 border-2 border-dusty-denim/50 hover:bg-prussian-blue/30 text-lg font-semibold rounded-2xl hover:scale-105 transition-all duration-300 text-ink-black hover:text-alabaster-grey">
+              <Link href="#features" className="bg-[#F4F4F4] border border-[#DFDFE2] hover:bg-[#FEFEFE] rounded-xl py-3 px-6 transition-all font-semibold text-[#111111]">
                 Watch Demo
               </Link>
             </div>
@@ -37,14 +37,14 @@ export default function Home() {
       </section>
 
       {/* 2. FEATURES */}
-      <section className="py-20 px-6">
+      <section className="py-20 px-6 bg-[#F4F4F4]">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-24 max-w-4xl mx-auto">
-            <h2 className="text-4xl md:text-6xl lg:text-7xl font-black bg-gradient-to-r from-ink-black via-dusk-blue to-prussian-blue bg-clip-text text-transparent mb-8 drop-shadow-2xl leading-tight">
+            <h2 className="text-2xl font-semibold mb-8 text-[#111111]">
               Built for teams who spend on AI
             </h2>
             <div className="max-w-2xl mx-auto">
-              <p className="text-xl md:text-2xl text-dusty-denim leading-relaxed font-light">
+              <p className="text-lg font-medium text-[#BEC0BF] leading-relaxed">
                 Complete visibility and control over your AI costs in one beautiful dashboard.
               </p>
             </div>
@@ -59,10 +59,10 @@ export default function Home() {
               { icon: '📈', title: 'Cost Intelligence', desc: 'AI-powered insights and optimization recommendations.' },
               { icon: '🔗', title: 'API Ready', desc: 'Machine-to-machine SDK for seamless integration.' },
             ].map((feature, i) => (
-              <div key={i} className="glass-card p-8 rounded-2xl shadow-lg border border-gray-600/50 hover:scale-105 hover:shadow-xl transition-all duration-300 cursor-pointer group bg-[#284B63]/80">
+              <div key={i} className="bg-white rounded-2xl border border-[#DFDFE2] shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer p-6 group">
                 <div className="text-4xl mb-6 group-hover:scale-110 transition-transform duration-300">{feature.icon}</div>
-                <h3 className="text-2xl font-semibold mb-4">{feature.title}</h3>
-                <p className="text-gray-300 leading-relaxed">{feature.desc}</p>
+                <h3 className="text-lg font-medium mb-4 text-[#111111]">{feature.title}</h3>
+                <p className="text-sm text-[#BEC0BF] leading-relaxed">{feature.desc}</p>
               </div>
             ))}
           </div>
@@ -70,27 +70,27 @@ export default function Home() {
       </section>
 
       {/* 3. DASHBOARD PREVIEW */}
-      <section id="dashboard-preview" className="py-20 px-6 bg-gradient-to-b from-[#284B63]/10 to-[#1e3a4a]/20">
+      <section id="dashboard-preview" className="py-20 px-6 bg-[#FEFEFE]">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-24">
-            <h2 className="text-4xl md:text-6xl lg:text-7xl font-black bg-gradient-to-r from-[#3C6E71] via-white to-[#284B63] bg-clip-text text-transparent mb-6 drop-shadow-2xl">
+            <h2 className="text-2xl font-semibold mb-6 text-[#111111]">
               Your Dashboard Awaits
             </h2>
-            <p className="text-xl md:text-2xl text-gray-300 max-w-3xl mx-auto font-light leading-relaxed">
+            <p className="text-lg font-medium text-[#BEC0BF] max-w-3xl mx-auto leading-relaxed">
               Real-time insights at a glance across all your AI providers
             </p>
           </div>
 
           {/* Mock Dashboard - Window UI */}
-          <div className="glass-card rounded-2xl shadow-2xl border border-gray-700/50 max-w-6xl mx-auto overflow-hidden bg-[#284B63]/40 backdrop-blur-xl relative">
+          <div className="bg-white rounded-2xl border border-[#DFDFE2] shadow-sm max-w-6xl mx-auto overflow-hidden relative">
             {/* Window Header */}
-            <div className="bg-[#284B63]/90 px-6 py-3 border-b border-gray-700/50 flex items-center gap-2">
+            <div className="bg-[#F4F4F4] px-6 py-3 border-b border-[#DFDFE2] flex items-center gap-2">
               <div className="flex gap-1">
                 <div className="w-3 h-3 bg-red-500/80 rounded-full hover:bg-red-400 transition-all duration-200 cursor-pointer"></div>
                 <div className="w-3 h-3 bg-yellow-500/80 rounded-full hover:bg-yellow-400 transition-all duration-200 cursor-pointer"></div>
                 <div className="w-3 h-3 bg-green-500/80 rounded-full hover:bg-green-400 transition-all duration-200 cursor-pointer"></div>
               </div>
-              <div className="ml-4 flex-1 bg-white/5 backdrop-blur-sm rounded-full px-4 py-1 text-xs font-medium text-gray-300 truncate">
+              <div className="ml-4 flex-1 bg-[#DFDFE2]/50 rounded-full px-4 py-1 text-xs font-medium text-[#BEC0BF] truncate">
                 AI Tracker Dashboard
               </div>
             </div>
@@ -98,23 +98,23 @@ export default function Home() {
             {/* Sidebar + Main */}
             <div className="flex lg:flex-row flex-col h-[600px]">
               {/* Fake Sidebar */}
-              <div className="w-full lg:w-64 bg-[#284B63]/95 p-6 border-b lg:border-b-0 lg:border-r border-gray-700/50 shadow-lg">
-                <div className="font-semibold text-lg text-white mb-8 flex items-center gap-2">
-                  <div className="w-8 h-8 bg-[#3C6E71]/80 rounded-lg flex items-center justify-center text-sm font-bold">AI</div>
+              <div className="w-full lg:w-64 bg-[#F4F4F4] p-6 border-b lg:border-b-0 lg:border-r border-[#DFDFE2] shadow-sm">
+                <div className="font-semibold text-lg text-[#111111] mb-8 flex items-center gap-2">
+                  <div className="w-8 h-8 bg-[#708A83]/80 rounded-lg flex items-center justify-center text-sm font-bold text-white">AI</div>
                   AI Tracker
                 </div>
                 <div className="space-y-4 text-sm">
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-gray-700/50 cursor-pointer hover:bg-[#3C6E71]/60 transition-all duration-300 group">
-                    <div className="w-8 h-8 bg-[#3C6E71] rounded-lg flex items-center justify-center text-xs font-bold group-hover:scale-110 transition-transform">📊</div>
-                    <span className="font-medium group-hover:text-white transition-colors">Dashboard</span>
+                  <div className="flex items-center gap-3 p-3 rounded-xl bg-[#DFDFE2]/50 cursor-pointer hover:bg-[#708A83]/20 transition-all duration-300 group">
+                    <div className="w-8 h-8 bg-[#708A83] rounded-lg flex items-center justify-center text-xs font-bold text-white group-hover:scale-110 transition-transform">📊</div>
+                    <span className="font-medium text-[#111111] group-hover:text-[#708A83] transition-colors">Dashboard</span>
                   </div>
-                  <div className="flex items-center gap-3 p-3 rounded-xl cursor-pointer hover:bg-gray-600/50 transition-all duration-300 group">
-                    <div className="w-8 h-8 bg-gray-600/80 rounded-lg flex items-center justify-center text-xs group-hover:scale-110 transition-transform">💰</div>
-                    <span className="group-hover:text-white transition-colors">Budgets</span>
+                  <div className="flex items-center gap-3 p-3 rounded-xl cursor-pointer hover:bg-[#DFDFE2]/50 transition-all duration-300 group">
+                    <div className="w-8 h-8 bg-[#DFDFE2] rounded-lg flex items-center justify-center text-xs group-hover:scale-110 transition-transform">💰</div>
+                    <span className="text-[#111111] group-hover:text-[#708A83] transition-colors">Budgets</span>
                   </div>
-                  <div className="flex items-center gap-3 p-3 rounded-xl cursor-pointer hover:bg-gray-600/50 transition-all duration-300 group">
-                    <div className="w-8 h-8 bg-gray-600/80 rounded-lg flex items-center justify-center text-xs group-hover:scale-110 transition-transform">🔌</div>
-                    <span className="group-hover:text-white transition-colors">Providers</span>
+                  <div className="flex items-center gap-3 p-3 rounded-xl cursor-pointer hover:bg-[#DFDFE2]/50 transition-all duration-300 group">
+                    <div className="w-8 h-8 bg-[#DFDFE2] rounded-lg flex items-center justify-center text-xs group-hover:scale-110 transition-transform">🔌</div>
+                    <span className="text-[#111111] group-hover:text-[#708A83] transition-colors">Providers</span>
                   </div>
                 </div>
               </div>
@@ -122,10 +122,10 @@ export default function Home() {
               {/* Main Content */}
               <div className="flex-1 p-8">
                 {/* Top Navbar */}
-                <div className="flex items-center justify-between mb-8 pb-6 border-b border-gray-600/50">
-                  <div className="text-2xl font-semibold">Overview</div>
+                <div className="flex items-center justify-between mb-8 pb-6 border-b border-[#DFDFE2]">
+                  <div className="text-xl font-semibold text-[#111111]">Overview</div>
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-[#3C6E71] rounded-xl flex items-center justify-center">👤</div>
+                    <div className="w-10 h-10 bg-[#708A83] rounded-xl flex items-center justify-center text-white">👤</div>
                   </div>
                 </div>
 
@@ -137,19 +137,19 @@ export default function Home() {
                     { title: 'Active Providers', value: '4', change: '+1', trend: '🔌', color: 'from-purple-400 to-violet-500' },
                     { title: 'Budget Remaining', value: '$3,200', change: '-5%', trend: '⚠️', color: 'from-orange-400 to-red-500' }
                   ].map((stat, i) => (
-                    <div key={i} className="glass-card p-6 rounded-2xl shadow-lg hover:scale-105 transition-all duration-300 border border-gray-600/50 bg-gradient-to-br from-[#284B63]/90 to-[#284B63]/60 backdrop-blur-sm">
+                    <div key={i} className="bg-white rounded-2xl border border-[#DFDFE2] shadow-sm hover:shadow-md transition-all duration-300 p-6">
                       <div className="flex items-center justify-between mb-2">
-                        <div className="text-2xl font-bold text-white">{stat.value}</div>
-                        <span className={`text-2xl opacity-80`}>{stat.trend}</span>
+                        <div className="text-xl font-bold text-[#111111]">{stat.value}</div>
+                        <span className="text-xl text-[#BEC0BF]">{stat.trend}</span>
                       </div>
-                      <div className="text-sm text-gray-400 mb-3">{stat.title}</div>
+                      <div className="text-sm text-[#BEC0BF] mb-3">{stat.title}</div>
                       <div className="flex items-center gap-2">
-                        <span className={`bg-gradient-to-r ${stat.color} px-3 py-1 rounded-full text-xs font-bold text-white shadow-lg`}>
+                        <span className="bg-[#708A83]/20 text-[#708A83] px-3 py-1 rounded-full text-xs font-bold">
                           {stat.change}
                         </span>
-                        <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+                        <div className="flex-1 h-2 bg-[#F4F4F4] rounded-full overflow-hidden">
                           <div 
-                            className={`h-full bg-gradient-to-r ${stat.color} rounded-full shadow-inner transition-all duration-700 animate-pulse`} 
+                            className={`h-full bg-[#708A83] rounded-full transition-all duration-700`} 
                             style={{width: i === 3 ? '60%' : '85%'}}
                           ></div>
                         </div>
@@ -161,57 +161,49 @@ export default function Home() {
                 {/* Enhanced Fake Charts Row */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-12">
                   {/* Line Chart Mock */}
-                  <div className="glass-card p-6 rounded-2xl shadow-xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/30 h-72 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-indigo-400/20 via-purple-400/20 to-blue-500/20 animate-shimmer"></div>
-                    <div className="relative z-10 flex flex-col h-full">
-                      <div className="flex items-center gap-2 mb-4 p-3 bg-white/5 backdrop-blur-sm rounded-xl">
-                        <div className="w-3 h-3 bg-indigo-400 rounded-full"></div>
-                        <span className="text-indigo-200 font-semibold">Token Usage</span>
-                      </div>
-                      <div className="flex-1 space-y-4">
-                        <div className="space-y-1">
-                          <div className="h-2 bg-gradient-to-r from-indigo-400 to-blue-500 rounded-full animate-pulse" style={{animationDelay: '0s'}}></div>
-                          <div className="h-3 bg-gradient-to-r from-purple-400 to-indigo-500/70 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
-                          <div className="h-4 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
-                          <div className="h-2.5 bg-gradient-to-r from-indigo-500 to-sky-400/80 rounded-full animate-pulse" style={{animationDelay: '0.6s'}}></div>
-                        </div>
+                  <div className="bg-white rounded-2xl border border-[#DFDFE2] shadow-sm p-6 h-72 relative overflow-hidden">
+                    <div className="flex items-center gap-2 mb-4 p-3 bg-[#F4F4F4] rounded-xl">
+                      <div className="w-3 h-3 bg-[#708A83] rounded-full"></div>
+                      <span className="text-[#708A83] font-semibold">Token Usage</span>
+                    </div>
+                    <div className="flex-1 space-y-4">
+                      <div className="space-y-1">
+                        <div className="h-2 bg-[#708A83]/30 rounded-full animate-pulse" style={{animationDelay: '0s'}}></div>
+                        <div className="h-3 bg-[#708A83]/50 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                        <div className="h-4 bg-[#708A83]/70 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+                        <div className="h-2.5 bg-[#708A83] rounded-full animate-pulse" style={{animationDelay: '0.6s'}}></div>
                       </div>
                     </div>
                   </div>
 
                   {/* Pie Chart Mock */}
-                  <div className="glass-card p-6 rounded-2xl shadow-xl bg-gradient-to-br from-emerald-500/10 via-green-500/5 to-teal-500/10 border border-emerald-400/30 h-72 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-400/20 via-green-400/10 to-teal-500/20 animate-shimmer delay-1000"></div>
-                    <div className="relative z-10 flex flex-col h-full">
-                      <div className="flex items-center gap-2 mb-4 p-3 bg-white/5 backdrop-blur-sm rounded-xl">
-                        <div className="w-3 h-3 bg-emerald-400 rounded-full"></div>
-                        <span className="text-emerald-200 font-semibold">Provider Split</span>
-                      </div>
-                      <div className="relative flex-1 flex items-center justify-center">
-                        <div className="w-48 h-48 rounded-3xl bg-gradient-to-r from-emerald-400 via-green-400 to-teal-500 shadow-2xl relative animate-spin-slow"></div>
-                        <div className="absolute w-32 h-32 bg-[#284B63]/90 rounded-2xl shadow-inner flex items-center justify-center">
-                          <div className="text-2xl font-bold text-white">67%</div>
-                        </div>
+                  <div className="bg-white rounded-2xl border border-[#DFDFE2] shadow-sm p-6 h-72 relative overflow-hidden">
+                    <div className="flex items-center gap-2 mb-4 p-3 bg-[#F4F4F4] rounded-xl">
+                      <div className="w-3 h-3 bg-emerald-400 rounded-full"></div>
+                      <span className="text-emerald-600 font-semibold">Provider Split</span>
+                    </div>
+                    <div className="relative flex-1 flex items-center justify-center">
+                      <div className="w-48 h-48 rounded-2xl bg-[#F4F4F4] animate-spin-slow relative border-4 border-[#F4F4F4]"></div>
+                      <div className="absolute w-32 h-32 bg-white rounded-2xl shadow-sm flex items-center justify-center border border-[#DFDFE2]">
+                        <div className="text-xl font-bold text-[#111111]">67%</div>
                       </div>
                     </div>
                   </div>
                 </div>
 
-
-
                 {/* Fake Table */}
-                <div className="glass-card rounded-2xl shadow-lg overflow-hidden border border-gray-600/50">
-                  <div className="bg-[#284B63]/80 px-6 py-4 border-b border-gray-600/50">
-                    <h3 className="font-semibold text-lg">Recent Usage</h3>
+                <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-[#DFDFE2]">
+                  <div className="bg-[#F4F4F4] px-6 py-4 border-b border-[#DFDFE2]">
+                    <h3 className="font-semibold text-lg text-[#111111]">Recent Usage</h3>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
-                        <tr className="border-b border-gray-600/50">
-                          <th className="text-left p-6 font-semibold text-gray-200">Provider</th>
-                          <th className="text-left p-6 font-semibold text-gray-200">Tokens</th>
-                          <th className="text-left p-6 font-semibold text-gray-200">Cost</th>
-                          <th className="text-left p-6 font-semibold text-gray-200">Model</th>
+                        <tr className="border-b border-[#DFDFE2]">
+                          <th className="text-left p-6 font-semibold text-[#BEC0BF]">Provider</th>
+                          <th className="text-left p-6 font-semibold text-[#BEC0BF]">Tokens</th>
+                          <th className="text-left p-6 font-semibold text-[#BEC0BF]">Cost</th>
+                          <th className="text-left p-6 font-semibold text-[#BEC0BF]">Model</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -222,11 +214,11 @@ export default function Home() {
                           { provider: 'GCP Vertex', tokens: '180K', cost: '$67', model: 'gemini-pro' },
                           { provider: 'OpenAI', tokens: '95K', cost: '$34', model: 'gpt-4-turbo' }
                         ].map((row, i) => (
-                          <tr key={i} className="hover:bg-gray-700/50 transition-colors duration-200 border-b border-gray-600/30">
-                            <td className="p-6 font-medium">{row.provider}</td>
-                            <td className="p-6">{row.tokens}</td>
-                            <td className="p-6 font-semibold text-[#3C6E71]">${row.cost}</td>
-                            <td className="p-6 text-gray-400">{row.model}</td>
+                          <tr key={i} className="hover:bg-[#F4F4F4] transition-colors duration-200 border-b border-[#DFDFE2]/50">
+                            <td className="p-6 font-medium text-[#111111]">{row.provider}</td>
+                            <td className="p-6 text-[#BEC0BF]">{row.tokens}</td>
+                            <td className="p-6 font-semibold text-[#708A83]">{row.cost}</td>
+                            <td className="p-6 text-[#BEC0BF]">{row.model}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -240,66 +232,66 @@ export default function Home() {
       </section>
 
       {/* 4. PRICING */}
-      <section id="pricing" className="py-20 px-6">
+      <section id="pricing" className="py-20 px-6 bg-[#F4F4F4]">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-20">
-            <h2 className="text-4xl md:text-5xl font-semibold mb-6">Simple pricing for every team</h2>
-            <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+            <h2 className="text-2xl font-semibold mb-6 text-[#111111]">Simple pricing for every team</h2>
+            <p className="text-lg text-[#BEC0BF] max-w-2xl mx-auto">
               Start free. Scale as you grow.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {/* Free Plan */}
-            <div className="glass-card p-8 rounded-2xl shadow-lg hover:scale-105 transition-all duration-300 border border-gray-600/50 bg-[#284B63]/80 relative">
-              <div className="text-3xl font-bold text-gray-400 mb-4">$0</div>
-              <div className="text-2xl font-semibold mb-8">Free</div>
-              <ul className="space-y-3 mb-8 text-gray-300">
-                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> 1 User</li>
-                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> 3 Providers</li>
-                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> Basic Charts</li>
+            {/* 1 Month Trial */}
+            <div className="bg-white rounded-2xl border border-[#DFDFE2] shadow-sm p-6 hover:shadow-md transition-all duration-300 relative">
+              <div className="text-3xl font-semibold text-[#BEC0BF] mb-4">$0</div>
+              <div className="text-lg font-medium mb-8 text-[#111111]">1 Month Trial</div>
+              <ul className="space-y-3 mb-8 text-[#BEC0BF]">
+                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> <span className="text-sm">1 User</span></li>
+                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> <span className="text-sm">3 Providers</span></li>
+                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> <span className="text-sm">Basic Charts</span></li>
               </ul>
               <Link href="/dashboard">
-                <div className="w-full py-4 bg-transparent border-2 border-gray-500/50 hover:bg-gray-700/50 text-lg font-semibold rounded-xl hover:scale-105 transition-all duration-300 text-center">
+                <div className="w-full bg-[#F4F4F4] border border-[#DFDFE2] hover:bg-[#FEFEFE] text-[#111111] font-semibold rounded-xl py-3 px-6 hover:shadow-sm transition-all duration-300 text-center text-sm">
                   Get Started
                 </div>
               </Link>
             </div>
 
             {/* Pro Plan - Highlighted */}
-            <div className="glass-card p-10 rounded-2xl shadow-2xl hover:shadow-[0_35px_60px_-15px_rgba(60,110,113,0.5)] hover:scale-105 transition-all duration-500 relative bg-gradient-to-br from-[#284B63]/95 via-[#284B63]/80 to-[#1e3a4a]/90 border-2 border-[#3C6E71]/80 ring-4 ring-[#3C6E71]/20 scale-[1.03]">
-              <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-gradient-to-r from-[#3C6E71] to-[#284B63] px-8 py-3 rounded-2xl text-white font-bold text-sm shadow-lg shadow-[#3C6E71]/40 transform rotate-1 hover:rotate-0 transition-all duration-300">
+            <div className="bg-white rounded-2xl border-2 border-[#708A83] shadow-sm hover:shadow-lg transition-all duration-300 relative p-8 scale-[1.02]">
+              <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-[#708A83] text-white px-6 py-2 rounded-2xl font-semibold text-sm shadow-sm">
                 ⭐ Most Popular
               </div>
-              <div className="text-4xl font-black mb-4 bg-gradient-to-r from-[#3C6E71] to-white bg-clip-text text-transparent drop-shadow-lg">$29</div>
-              <div className="text-xl font-bold mb-8 text-[#3C6E71]/90 tracking-wide uppercase">per month</div>
-              <ul className="space-y-3 mb-8 text-gray-300">
-                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> Unlimited Users</li>
-                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> All Providers</li>
-                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> Team Budgets</li>
-                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> Smart Alerts</li>
-                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> API Access</li>
-                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> Cost Intelligence</li>
+              <div className="text-3xl font-bold mb-2 text-[#708A83]">$29</div>
+              <div className="text-lg font-semibold mb-8 text-[#BEC0BF]">/month</div>
+              <ul className="space-y-3 mb-8 text-[#BEC0BF]">
+                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> <span className="text-sm">Unlimited Users</span></li>
+                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> <span className="text-sm">All Providers</span></li>
+                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> <span className="text-sm">Team Budgets</span></li>
+                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> <span className="text-sm">Smart Alerts</span></li>
+                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> <span className="text-sm">API Access</span></li>
+                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> <span className="text-sm">Cost Intelligence</span></li>
               </ul>
               <Link href="/dashboard">
-                <div className="premium-btn w-full py-4 text-lg font-semibold rounded-xl shadow-xl">
+                <div className="bg-[#708A83] text-white hover:bg-[#476E66] w-full font-semibold rounded-xl py-3 px-6 shadow-sm hover:shadow-md transition-all duration-300 text-center text-sm">
                   Start Pro Trial
                 </div>
               </Link>
             </div>
 
             {/* Enterprise */}
-            <div className="glass-card p-8 rounded-2xl shadow-lg hover:scale-105 transition-all duration-300 border border-gray-600/50 bg-[#284B63]/80">
-              <div className="text-3xl font-bold text-gray-400 mb-4">$99+</div>
-              <div className="text-2xl font-semibold mb-8">Enterprise</div>
-              <ul className="space-y-3 mb-8 text-gray-300">
-                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> Everything in Pro</li>
-                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> SSO & RBAC</li>
-                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> Custom SLAs</li>
-                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> Dedicated Support</li>
+            <div className="bg-white rounded-2xl border border-[#DFDFE2] shadow-sm p-6 hover:shadow-md transition-all duration-300">
+              <div className="text-3xl font-semibold text-[#BEC0BF] mb-4">$99+</div>
+              <div className="text-lg font-medium mb-8 text-[#111111]">Enterprise</div>
+              <ul className="space-y-3 mb-8 text-[#BEC0BF]">
+                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> <span className="text-sm">Everything in Pro</span></li>
+                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> <span className="text-sm">SSO & RBAC</span></li>
+                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> <span className="text-sm">Custom SLAs</span></li>
+                <li className="flex items-center gap-3"><span className="text-green-400">✅</span> <span className="text-sm">Dedicated Support</span></li>
               </ul>
               <Link href="/contact">
-                <div className="w-full py-4 bg-[#3C6E71] hover:bg-[#284B63] text-lg font-semibold rounded-xl hover:scale-105 transition-all duration-300 text-center shadow-lg">
+                <div className="bg-[#708A83] text-white hover:bg-[#476E66] w-full font-semibold rounded-xl py-3 px-6 hover:shadow-sm transition-all duration-300 text-center text-sm">
                   Contact Sales
                 </div>
               </Link>
@@ -309,19 +301,19 @@ export default function Home() {
       </section>
 
       {/* CTA */}
-      <section className="py-20 px-6 bg-[#284B63]/30">
+      <section className="py-20 px-6 bg-[#F4F4F4]">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl md:text-5xl font-semibold mb-6">Ready to take control?</h2>
-          <p className="text-xl text-gray-300 mb-12 max-w-2xl mx-auto leading-relaxed">
+          <h2 className="text-2xl font-semibold mb-6 text-[#111111]">Ready to take control?</h2>
+          <p className="text-lg text-[#BEC0BF] mb-12 max-w-2xl mx-auto leading-relaxed">
             Join 500+ teams saving 30%+ on AI infrastructure costs.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/dashboard">
-              <div className="premium-btn px-12 py-6 text-lg font-semibold rounded-2xl shadow-xl">
+              <div className="bg-[#708A83] text-white hover:bg-[#476E66] px-12 py-3 font-semibold rounded-xl shadow-sm hover:shadow-md transition-all">
                 Start Free
               </div>
             </Link>
-            <Link href="#pricing" className="px-12 py-6 border-2 border-gray-500/50 hover:bg-[#284B63]/50 text-lg font-semibold rounded-2xl hover:scale-105 transition-all duration-300">
+            <Link href="#pricing" className="bg-[#F4F4F4] border border-[#DFDFE2] hover:bg-[#FEFEFE] px-12 py-3 font-semibold rounded-xl hover:shadow-sm transition-all text-[#111111]">
               View Pricing
             </Link>
           </div>
@@ -329,16 +321,16 @@ export default function Home() {
       </section>
 
       {/* 5. FOOTER */}
-      <footer className="py-20 px-6 border-t border-gray-600/20">
+      <footer className="py-20 px-6 border-t border-[#DFDFE2]">
         <div className="max-w-7xl mx-auto text-center">
-          <div className="text-gray-400 text-sm mb-8">
+          <div className="text-sm text-[#BEC0BF] mb-8">
             © 2024 AI Spend Tracker. Built with ❤️ for the AI economy.
           </div>
-          <div className="flex flex-col sm:flex-row gap-8 justify-center items-center text-sm text-gray-500">
-            <Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link>
-            <Link href="/terms" className="hover:text-white transition-colors">Terms</Link>
-            <Link href="/security" className="hover:text-white transition-colors">Security</Link>
-            <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
+          <div className="flex flex-col sm:flex-row gap-8 justify-center items-center text-sm text-[#BEC0BF]">
+            <Link href="/privacy" className="hover:text-[#708A83] transition-colors text-sm">Privacy</Link>
+            <Link href="/terms" className="hover:text-[#708A83] transition-colors text-sm">Terms</Link>
+            <Link href="/security" className="hover:text-[#708A83] transition-colors text-sm">Security</Link>
+            <Link href="/contact" className="hover:text-[#708A83] transition-colors text-sm">Contact</Link>
           </div>
         </div>
       </footer>

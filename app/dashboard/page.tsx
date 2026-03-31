@@ -49,20 +49,20 @@ const MetricCard = ({ title, value, change, description }: {
   change?: number; 
   description?: string;
 }) => (
-  <div className="glass-card p-8 rounded-2xl border border-[#D9D9D9]/30 hover:shadow-xl transition-all duration-200 group">
+  <div className="bg-white rounded-2xl border border-[#DFDFE2] shadow-sm hover:shadow-md transition-all duration-200 p-8 group">
     <div className="flex items-start justify-between">
       <div className="space-y-2">
-        <p className="text-sm font-medium text-[#D9D9D9] uppercase tracking-wider">{title}</p>
-        <p className="text-3xl font-bold text-white">{value}</p>
+        <p className="text-sm font-medium text-[#BEC0BF] uppercase tracking-wider">{title}</p>
+        <p className="text-3xl font-bold text-[#111111]">{value}</p>
         {description && (
-          <p className="text-sm text-[#D9D9D9]">{description}</p>
+          <p className="text-sm text-[#BEC0BF]">{description}</p>
         )}
       </div>
       {change !== undefined && (
         <div className={`text-sm font-semibold px-3 py-1 rounded-xl ${
           change >= 0 
-            ? 'bg-emerald-500/20 text-emerald-400 border-emerald-400/50 border' 
-            : 'bg-red-500/20 text-red-400 border-red-400/50 border'
+            ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-200/50' 
+            : 'bg-red-500/10 text-red-600 border border-red-200/50'
         }`}>
           {change >= 0 ? '+' : ''}{change}%
         </div>
@@ -96,7 +96,7 @@ export default async function DashboardPage() {
   const pieData = breakdown.slice(0, 5).map((p, i) => ({
     label: p.provider_name,
     value: Number(p.total_cost_usd ?? 0),
-    color: ['#3C6E71', '#284B63', '#D9D9D9', '#FFFFFF', '#FF6B6B'][i % 5],
+    color: ['#708A83', '#476E66', '#DFDFE2', '#BEC0BF', '#FF6B6B'][i % 5],
   }));
 
   const linePoints = Array.from({length: 30}, (_, i) => ({
@@ -105,12 +105,12 @@ export default async function DashboardPage() {
   }));
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8">
+    <div className="p-8 max-w-7xl mx-auto space-y-8 bg-[#FEFEFE]">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-semibold text-white">Dashboard</h1>
-          <p className="text-[#D9D9D9]">Welcome back. Here's what's happening with your AI spend.</p>
+          <h1 className="text-2xl font-semibold text-[#111111]">Dashboard</h1>
+          <p className="text-[#BEC0BF]">Welcome back. Here's what's happening with your AI spend.</p>
         </div>
       </div>
 
@@ -140,21 +140,21 @@ export default async function DashboardPage() {
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="glass-card p-8 rounded-2xl">
-          <h2 className="text-lg font-medium text-white mb-6">Provider Breakdown</h2>
+        <div className="bg-white rounded-2xl border border-[#DFDFE2] shadow-sm p-8">
+          <h2 className="text-lg font-medium text-[#111111] mb-6">Provider Breakdown</h2>
           <PieChart title="Cost distribution" data={pieData} />
         </div>
-        <div className="glass-card p-8 rounded-2xl">
-          <h2 className="text-lg font-medium text-white mb-6">Daily Spend Trend</h2>
+        <div className="bg-white rounded-2xl border border-[#DFDFE2] shadow-sm p-8">
+          <h2 className="text-lg font-medium text-[#111111] mb-6">Daily Spend Trend</h2>
           <LineChart points={linePoints} />
         </div>
       </div>
 
       {/* Usage Table */}
-      <div className="glass-card p-8 rounded-2xl">
+      <div className="bg-white rounded-2xl border border-[#DFDFE2] shadow-sm p-8 overflow-hidden">
         <div className="flex justify-between items-center mb-8">
-          <h2 className="text-lg font-medium text-white">Recent Usage</h2>
-          <Link href="#" className="text-sm font-medium text-[#3C6E71] hover:text-white transition-colors">
+          <h2 className="text-lg font-medium text-[#111111]">Recent Usage</h2>
+          <Link href="#" className="text-sm font-medium text-[#708A83] hover:text-[#476E66] transition-colors">
             View all →
           </Link>
         </div>
@@ -162,25 +162,25 @@ export default async function DashboardPage() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-[#D9D9D9]/30">
-                <th className="text-left py-4 pr-6 text-sm font-medium text-[#D9D9D9]">Model</th>
-                <th className="text-left py-4 px-6 text-sm font-medium text-[#D9D9D9]">Tokens</th>
-                <th className="text-left py-4 px-6 text-sm font-medium text-[#D9D9D9]">Cost</th>
-                <th className="text-left py-4 px-6 text-sm font-medium text-[#D9D9D9]">Requests</th>
+              <tr className="border-b border-[#DFDFE2]">
+                <th className="text-left py-4 pr-6 text-sm font-medium text-[#BEC0BF]">Model</th>
+                <th className="text-left py-4 px-6 text-sm font-medium text-[#BEC0BF]">Tokens</th>
+                <th className="text-left py-4 px-6 text-sm font-medium text-[#BEC0BF]">Cost</th>
+                <th className="text-left py-4 px-6 text-sm font-medium text-[#BEC0BF]">Requests</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#D9D9D9]/10">
+            <tbody className="divide-y divide-[#DFDFE2]/30">
               {[
                 {model: 'gpt-4o', tokens: '12.4k', cost: '$2.34', requests: 45},
                 {model: 'claude-3-opus', tokens: '8.7k', cost: '$4.12', requests: 23},
                 {model: 'bedrock-titan', tokens: '5.2k', cost: '$1.89', requests: 67},
                 {model: 'vertex-gemini', tokens: '3.1k', cost: '$0.76', requests: 34},
               ].map((row, i) => (
-                <tr key={i} className="hover:bg-[#284B63]/20 transition-colors">
-                  <td className="py-4 pr-6 text-white font-medium">{row.model}</td>
-                  <td className="py-4 px-6 text-[#D9D9D9]">{row.tokens}</td>
-                  <td className="py-4 px-6 font-mono text-[#3C6E71] font-semibold">${row.cost}</td>
-                  <td className="py-4 px-6 text-[#D9D9D9]">{row.requests}</td>
+                <tr key={i} className="hover:bg-[#F4F4F4] transition-colors">
+                  <td className="py-4 pr-6 text-[#111111] font-medium">{row.model}</td>
+                  <td className="py-4 px-6 text-[#BEC0BF]">{row.tokens}</td>
+                  <td className="py-4 px-6 font-mono text-[#708A83] font-semibold">${row.cost}</td>
+                  <td className="py-4 px-6 text-[#BEC0BF]">{row.requests}</td>
                 </tr>
               ))}
             </tbody>

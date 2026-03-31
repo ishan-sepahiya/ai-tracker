@@ -28,7 +28,7 @@ export default function Skeleton({
   variant = 'default' as const, 
   size = 'md' as const 
 }: SkeletonProps) {
-  const baseClasses = "glass-card animate-pulse border-[#D9D9D9]/20 bg-[#284B63]/20";
+const baseClasses = "bg-[#F4F4F4]/50 animate-pulse border border-[#DFDFE2]/50 rounded-2xl";
 
   return (
     <div 
