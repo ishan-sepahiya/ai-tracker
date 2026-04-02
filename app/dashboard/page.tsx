@@ -43,33 +43,47 @@ async function getAuthedUserId() {
   return user.id;
 }
 
-const MetricCard = ({ title, value, change, description }: { 
+const MetricCard = ({ 
+  title, 
+  value, 
+  change, 
+  description,
+  icon 
+}: { 
   title: string; 
   value: string | number; 
   change?: number; 
   description?: string;
-}) => (
-  <div className="bg-white rounded-2xl border border-[#DFDFE2] shadow-sm hover:shadow-md transition-all duration-200 p-8 group">
-    <div className="flex items-start justify-between">
-      <div className="space-y-2">
-        <p className="text-sm font-medium text-[#BEC0BF] uppercase tracking-wider">{title}</p>
-        <p className="text-3xl font-bold text-[#111111]">{value}</p>
-        {description && (
-          <p className="text-sm text-[#BEC0BF]">{description}</p>
-        )}
+  icon?: string;
+}) => {
+  const isPositive = (change ?? 0) >= 0;
+  
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all p-6">
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <p className="text-sm font-medium text-gray-600 uppercase tracking-wider mb-1">{title}</p>
+          <p className="text-3xl font-bold text-gray-900">{value}</p>
+          {description && (
+            <p className="text-xs text-gray-600 mt-2">{description}</p>
+          )}
+        </div>
+        {icon && <span className="text-3xl">{icon}</span>}
       </div>
+      
       {change !== undefined && (
-        <div className={`text-sm font-semibold px-3 py-1 rounded-xl ${
-          change >= 0 
-            ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-200/50' 
-            : 'bg-red-500/10 text-red-600 border border-red-200/50'
+        <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ${
+          isPositive 
+            ? 'bg-red-50 text-red-700' 
+            : 'bg-green-50 text-green-700'
         }`}>
-          {change >= 0 ? '+' : ''}{change}%
+          <span>{isPositive ? '↑' : '↓'}</span>
+          <span>{Math.abs(change)}%</span>
         </div>
       )}
     </div>
-  </div>
-);
+  );
+};
 
 export default async function DashboardPage() {
   const userId = await getAuthedUserId();
@@ -79,108 +93,214 @@ export default async function DashboardPage() {
   
   const [breakdown, providerRows, usageStats, budgetRows] = await Promise.all([
     aggregateByProvider(userId, monthYear),
-    supabaseAdmin.from("providers").select("id,provider_name,display_name").eq("user_id", userId),
-    supabaseAdmin.from("usage_records")
-      .select("total_tokens,total_cost_usd", { count: 'exact', head: true })
-      .eq("user_id", userId),
+    supabaseAdmin
+      .from("usage_records")
+      .select("provider, total_cost_usd")
+      .eq("user_id", userId)
+      .eq("month_year", monthYear)
+      .order("total_cost_usd", { ascending: false })
+      .limit(6),
+    supabaseAdmin
+      .from("usage_records")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("month_year", monthYear)
+      .order("created_at", { ascending: false })
+      .limit(10),
     supabaseAdmin.from("budgets").select("monthly_limit_usd").eq("user_id", userId),
   ]);
 
-  const totalSpend = breakdown.reduce((sum, p) => sum + Number(p.total_cost_usd ?? 0), 0);
-  const totalTokens = usageStats.data?.reduce((sum, r) => sum + Number(r.total_tokens ?? 0), 0) ?? 0;
-  const activeProviders = providerRows.data?.length ?? 0;
-  const monthlyBudget = budgetRows.data?.reduce((sum, r) => sum + Number(r.monthly_limit_usd ?? 0), 0) ?? 0;
-  const budgetRemaining = Math.max(0, monthlyBudget - totalSpend);
+  const monthSpend = breakdown.reduce((sum, p) => sum + Number(p.total_cost_usd ?? 0), 0);
+  const monthlyLimit = (budgetRows.data ?? []).reduce(
+    (sum, r) => sum + Number(r.monthly_limit_usd ?? 0),
+    0
+  );
+  const remainingBudget = Math.max(0, monthlyLimit - monthSpend);
+  const budgetUsedPct = monthlyLimit > 0 ? (monthSpend / monthlyLimit) * 100 : 0;
 
-  // Charts data (simplified)
-  const pieData = breakdown.slice(0, 5).map((p, i) => ({
-    label: p.provider_name,
-    value: Number(p.total_cost_usd ?? 0),
-    color: ['#708A83', '#476E66', '#DFDFE2', '#BEC0BF', '#FF6B6B'][i % 5],
-  }));
+  const dailySpend = await getDailySpend(userId);
+  const forecast = await computeForecast(userId);
+  const anomalies = await detectAnomalies(userId);
+  const comparisons = await compareProviderCosts(userId, monthYear);
 
-  const linePoints = Array.from({length: 30}, (_, i) => ({
-    x: `2024-${String(1 + i).padStart(2,'0')}-01`,
-    y: 10 + Math.sin(i / 3) * 5 + i * 0.3
-  }));
+  const lastMonth = new Date(now);
+  lastMonth.setMonth(lastMonth.getMonth() - 1);
+  const lastMonthYear = monthYearUTC(lastMonth);
+  const lastMonthBreakdown = await aggregateByProvider(userId, lastMonthYear);
+  const lastMonthSpend = lastMonthBreakdown.reduce((sum, p) => sum + Number(p.total_cost_usd ?? 0), 0);
+
+  const monthChange = lastMonthSpend > 0 ? ((monthSpend - lastMonthSpend) / lastMonthSpend) * 100 : 0;
+  const currentDaySpend = dailySpend[dailySpend.length - 1]?.total_cost_usd ?? 0;
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 bg-[#FEFEFE]">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-8">
+      {/* Page Header */}
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-[#111111]">Dashboard</h1>
-          <p className="text-[#BEC0BF]">Welcome back. Here's what's happening with your AI spend.</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Dashboard</h1>
+          <p className="text-gray-600">Track your AI spending across all providers</p>
+        </div>
+        <div className="text-right">
+          <p className="text-sm text-gray-600 mb-1">Current Month</p>
+          <p className="text-3xl font-bold text-gray-900">{monthYear.split('-').join('/')}</p>
         </div>
       </div>
 
-      {/* Metrics Grid */}
+      {/* Metric Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <MetricCard 
           title="Total Spend" 
-          value={`$${totalSpend.toFixed(2)}`}
-          description={monthYear}
+          value={`$${monthSpend.toFixed(2)}`}
+          icon="💰"
+          change={monthChange}
+          description={`vs ${lastMonthSpend > 0 ? '+' : ''}${monthChange.toFixed(1)}% last month`}
         />
         <MetricCard 
-          title="Tokens Used" 
-          value={totalTokens.toLocaleString()}
-          description="this month"
-        />
-        <MetricCard 
-          title="Active Providers" 
-          value={activeProviders}
-          change={5}
+          title="Today's Spend" 
+          value={`$${currentDaySpend.toFixed(2)}`}
+          icon="📊"
+          description="Today's usage"
         />
         <MetricCard 
           title="Budget Remaining" 
-          value={`$${budgetRemaining.toFixed(2)}`}
-          description={monthlyBudget > 0 ? `${((budgetRemaining/monthlyBudget)*100).toFixed(0)}% left` : 'Set budget'}
+          value={`$${remainingBudget.toFixed(2)}`}
+          icon="💳"
+          change={-budgetUsedPct}
+          description={`${budgetUsedPct.toFixed(0)}% of budget used`}
+        />
+        <MetricCard 
+          title="Forecast (EOD)" 
+          value={`$${forecast.projected_total_usd.toFixed(2)}`}
+          icon="🎯"
+          description="Predicted month-end spend"
         />
       </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white rounded-2xl border border-[#DFDFE2] shadow-sm p-8">
-          <h2 className="text-lg font-medium text-[#111111] mb-6">Provider Breakdown</h2>
-          <PieChart title="Cost distribution" data={pieData} />
+      {/* Charts and Insights */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Chart - Takes 2 columns */}
+        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Daily Spend</h2>
+              <p className="text-sm text-gray-600">Daily AI API spending this month</p>
+            </div>
+            <div className="text-3xl">📈</div>
+          </div>
+          <LineChart points={dailySpend.map(d => ({ x: d.date, y: d.total_cost_usd }))} />
         </div>
-        <div className="bg-white rounded-2xl border border-[#DFDFE2] shadow-sm p-8">
-          <h2 className="text-lg font-medium text-[#111111] mb-6">Daily Spend Trend</h2>
-          <LineChart points={linePoints} />
+
+        {/* Provider Breakdown */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Provider Split</h2>
+              <p className="text-sm text-gray-600">Cost distribution</p>
+            </div>
+            <div className="text-3xl">🔌</div>
+          </div>
+          <PieChart 
+            data={breakdown.map((p, i) => ({
+              label: p.provider_name,
+              value: p.total_cost_usd,
+              color: ['#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981'][i % 5]
+            }))}
+          />
+          <div className="mt-6 space-y-3">
+            {breakdown.slice(0, 4).map((provider, i) => (
+              <div key={i} className="flex items-center justify-between">
+                <span className="text-sm text-gray-700">{provider.provider_name}</span>
+                <span className="font-medium text-gray-900">${Number(provider.total_cost_usd ?? 0).toFixed(2)}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Usage Table */}
-      <div className="bg-white rounded-2xl border border-[#DFDFE2] shadow-sm p-8 overflow-hidden">
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-lg font-medium text-[#111111]">Recent Usage</h2>
-          <Link href="#" className="text-sm font-medium text-[#708A83] hover:text-[#476E66] transition-colors">
-            View all →
-          </Link>
+      {/* Anomalies and Insights */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Anomalies */}
+        {anomalies.length > 0 && (
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Anomalies Detected</h2>
+                <p className="text-sm text-gray-600">{anomalies.length} unusual spending pattern(s)</p>
+              </div>
+              <div className="text-3xl">⚠️</div>
+            </div>
+            <div className="space-y-3">
+              {anomalies.slice(0, 3).map((anomaly, i) => (
+                <div key={i} className="bg-orange-50 border border-orange-200 rounded-lg p-3">
+                  <p className="text-sm font-medium text-orange-900 mb-1">{anomaly.provider}</p>
+                  <p className="text-xs text-orange-700">{anomaly.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Top Providers */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Top Providers</h2>
+              <p className="text-sm text-gray-600">Highest spenders this month</p>
+            </div>
+            <div className="text-3xl">🏆</div>
+          </div>
+          <div className="space-y-4">
+            {breakdown.slice(0, 4).map((provider, i) => {
+              const providerCost = Number(provider.total_cost_usd ?? 0);
+              const maxCost = Math.max(...breakdown.map(p => Number(p.total_cost_usd ?? 0)));
+              const percentage = maxCost > 0 ? (providerCost / maxCost) * 100 : 0;
+              
+              return (
+                <div key={i}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-900">{provider.provider_name}</span>
+                    <span className="text-sm font-bold text-gray-900">${providerCost.toFixed(2)}</span>
+                  </div>
+                  <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-blue-500 to-purple-600 rounded-full"
+                      style={{ width: `${percentage}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
-        
+      </div>
+
+      {/* Recent Usage */}
+      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-lg font-bold text-gray-900">Recent Usage</h2>
+          <p className="text-sm text-gray-600">Latest API calls and costs</p>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead>
-              <tr className="border-b border-[#DFDFE2]">
-                <th className="text-left py-4 pr-6 text-sm font-medium text-[#BEC0BF]">Model</th>
-                <th className="text-left py-4 px-6 text-sm font-medium text-[#BEC0BF]">Tokens</th>
-                <th className="text-left py-4 px-6 text-sm font-medium text-[#BEC0BF]">Cost</th>
-                <th className="text-left py-4 px-6 text-sm font-medium text-[#BEC0BF]">Requests</th>
+            <thead className="bg-gray-50">
+              <tr className="border-b border-gray-200">
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Provider</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Model</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Tokens</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Cost</th>
+                <th className="px-6 py-3 text-left text-xs font-bold text-gray-600 uppercase tracking-wider">Date</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#DFDFE2]/30">
-              {[
-                {model: 'gpt-4o', tokens: '12.4k', cost: '$2.34', requests: 45},
-                {model: 'claude-3-opus', tokens: '8.7k', cost: '$4.12', requests: 23},
-                {model: 'bedrock-titan', tokens: '5.2k', cost: '$1.89', requests: 67},
-                {model: 'vertex-gemini', tokens: '3.1k', cost: '$0.76', requests: 34},
-              ].map((row, i) => (
-                <tr key={i} className="hover:bg-[#F4F4F4] transition-colors">
-                  <td className="py-4 pr-6 text-[#111111] font-medium">{row.model}</td>
-                  <td className="py-4 px-6 text-[#BEC0BF]">{row.tokens}</td>
-                  <td className="py-4 px-6 font-mono text-[#708A83] font-semibold">${row.cost}</td>
-                  <td className="py-4 px-6 text-[#BEC0BF]">{row.requests}</td>
+            <tbody className="divide-y divide-gray-200">
+              {(usageStats.data ?? []).map((stat: any, i: number) => (
+                <tr key={i} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{stat.provider}</td>
+                  <td className="px-6 py-4 text-sm text-gray-700">{stat.model}</td>
+                  <td className="px-6 py-4 text-sm text-gray-700">{Number(stat.tokens_used ?? 0).toLocaleString()}</td>
+                  <td className="px-6 py-4 text-sm font-bold text-gray-900">${Number(stat.total_cost_usd ?? 0).toFixed(4)}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">
+                    {new Date(stat.created_at).toLocaleDateString()}
+                  </td>
                 </tr>
               ))}
             </tbody>

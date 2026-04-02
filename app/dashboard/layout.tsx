@@ -34,13 +34,6 @@ async function getAuthedUser() {
   return data.user ?? null;
 }
 
-const NotificationsIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-    <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
-    <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-  </svg>
-);
-
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
   const user = await getAuthedUser();
   if (!user) redirect("/login");
@@ -88,81 +81,89 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   const progressPct = monthlyLimit > 0 ? Math.min(100, (monthSpend / monthlyLimit) * 100) : 0;
 
-  const routes: Array<{ href: string; label: string; icon?: string }> = [
+  const routes: Array<{ href: string; label: string; icon: string }> = [
     { href: "/dashboard", label: "Dashboard", icon: "📊" },
-    { href: "/dashboard/usage", label: "Usage", icon: "📈" },
+    { href: "/dashboard/stats", label: "Analytics", icon: "📈" },
     { href: "/dashboard/providers", label: "Providers", icon: "🔌" },
-    { href: "/dashboard/billing", label: "Billing", icon: "💳" },
     { href: "/dashboard/settings", label: "Settings", icon: "⚙️" },
   ];
 
   return (
-    <div className="min-h-screen bg-[#FEFEFE]">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 h-full">
-        <div className="py-8 h-full">
-          <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] xl:grid-cols-[320px_1fr] gap-8 h-full">
-            {/* Sidebar */}
-            <aside className="bg-[#476E66] text-white rounded-2xl p-6 space-y-6 border border-[#DFDFE2] shadow-sm lg:sticky top-8 h-fit">
-              <div title="This month spend">
-                <div className="text-xs text-white/80 uppercase tracking-wider font-semibold mb-2">Current Month</div>
-                <div className="text-3xl font-bold tabular-nums text-white mb-2">${monthSpend.toFixed(2)}</div>
-                <div className="text-xs text-white/80 mb-4">of ${monthlyLimit.toFixed(2)} budget</div>
-                <div className="h-2 rounded-full bg-white/20 overflow-hidden">
-                  <div
-                    className="h-full bg-[#708A83] rounded-full transition-all duration-700"
-                    style={{ width: `${progressPct}%` }}
-                  />
-                </div>
-              </div>
-
-              <nav className="space-y-1">
-                {routes.map((r) => (
-                  <Link
-                    key={r.href}
-                    href={r.href}
-                    className="bg-white/10 hover:bg-[#708A83] flex items-center gap-3 p-4 rounded-xl text-white hover:text-white border border-white/20 hover:border-white/40 transition-all duration-300 hover:scale-[1.02] group"
-                  >
-                    <span className="text-lg">{r.icon}</span>
-                    <span className="font-medium group-hover:translate-x-1 transition-transform">{r.label}</span>
-                  </Link>
-                ))}
-              </nav>
-            </aside>
-
-            {/* Main Content */}
-            <div className="bg-white rounded-2xl border border-[#DFDFE2] shadow-sm overflow-hidden">
-              {/* Top Bar */}
-              <div className="bg-[#F4F4F4] p-6 border-b border-[#DFDFE2]">
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-3">
-                      <div className="text-sm text-[#BEC0BF] truncate">Signed in as</div>
-                      <div className="text-sm font-semibold text-[#111111] truncate max-w-[300px]">
-                        {profile?.email ?? user.email ?? ""}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <button 
-                      title="Notifications" 
-                      className="p-2 text-[#BEC0BF] hover:text-[#708A83] hover:bg-[#708A83]/20 rounded-xl transition-all duration-200 hover:scale-110"
-                    >
-                      <NotificationsIcon />
-                    </button>
-                    <div className="bg-white/50 backdrop-blur-sm px-4 py-2 text-sm text-[#BEC0BF] rounded-xl border border-[#DFDFE2]">
-                      Plan: <span className="font-bold text-[#111111]">{planLabel}</span>
-                    </div>
-                    <SignOutButton />
-                  </div>
-                </div>
-              </div>
-
-              {/* Content */}
-              <main className="p-8">{children}</main>
+    <div className="min-h-screen bg-gray-50">
+      {/* Top Navigation */}
+      <nav className="bg-white border-b border-gray-200 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 font-bold text-xl">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg flex items-center justify-center text-white text-sm font-bold">
+              AI
             </div>
+            <span className="text-gray-900">AI Tracker</span>
+          </div>
+          
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-gray-100">
+              <span className="text-sm text-gray-600">{profile?.email ?? user.email ?? ""}</span>
+              <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold">
+                {(profile?.email ?? user.email ?? "").charAt(0).toUpperCase()}
+              </div>
+            </div>
+            <SignOutButton />
           </div>
         </div>
+      </nav>
+
+      <div className="flex h-[calc(100vh-73px)]">
+        {/* Sidebar */}
+        <aside className="w-64 bg-white border-r border-gray-200 overflow-y-auto">
+          <div className="p-6 space-y-8">
+            {/* Budget Card */}
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
+              <p className="text-xs text-gray-600 font-medium uppercase tracking-wider mb-2">This Month</p>
+              <p className="text-3xl font-bold text-gray-900 mb-3">${monthSpend.toFixed(0)}</p>
+              <p className="text-sm text-gray-600 mb-3">of ${monthlyLimit.toFixed(0)} budget</p>
+              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-1000"
+                  style={{ width: `${progressPct}%` }}
+                />
+              </div>
+              <p className="text-xs text-gray-600 mt-2">{progressPct.toFixed(0)}% used</p>
+            </div>
+
+            {/* Navigation */}
+            <nav className="space-y-2">
+              <p className="text-xs text-gray-500 font-semibold uppercase tracking-wider px-2 mb-4">Navigation</p>
+              {routes.map((route) => (
+                <Link
+                  key={route.href}
+                  href={route.href}
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors group"
+                >
+                  <span className="text-lg">{route.icon}</span>
+                  <span className="text-sm font-medium">{route.label}</span>
+                </Link>
+              ))}
+            </nav>
+
+            {/* Plan Badge */}
+            <div className="pt-4 border-t border-gray-200">
+              <div className="bg-blue-50 rounded-lg p-4">
+                <p className="text-xs text-gray-600 font-medium uppercase tracking-wider mb-2">Current Plan</p>
+                <p className="text-lg font-bold text-blue-600 mb-2">{planLabel}</p>
+                <button className="w-full text-xs font-medium text-blue-600 hover:text-blue-700 py-1.5 border border-blue-300 rounded-lg hover:bg-blue-100 transition-colors">
+                  Upgrade
+                </button>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 overflow-auto">
+          <div className="max-w-7xl mx-auto p-8">
+            {children}
+          </div>
+        </main>
       </div>
     </div>
   );
