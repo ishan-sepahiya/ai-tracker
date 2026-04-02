@@ -232,8 +232,12 @@ export default async function DashboardPage() {
             <div className="space-y-3">
               {anomalies.slice(0, 3).map((anomaly, i) => (
                 <div key={i} className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                  <p className="text-sm font-medium text-orange-900 mb-1">{anomaly.provider}</p>
-                  <p className="text-xs text-orange-700">{anomaly.description}</p>
+                  <p className="text-sm font-medium text-orange-900 mb-1">
+                    {new Date(anomaly.date).toLocaleDateString()} - ${anomaly.spend.toFixed(2)}
+                  </p>
+                  <p className="text-xs text-orange-700">
+                    {anomaly.severity === 'critical' ? '🔴 Critical' : '🟠 Warning'} - {Math.round((anomaly.spend / anomaly.rolling_avg) * 100)}% above average
+                  </p>
                 </div>
               ))}
             </div>
