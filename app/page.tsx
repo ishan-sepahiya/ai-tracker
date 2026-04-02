@@ -193,12 +193,12 @@ export default function Home() {
         </div>
 
         <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
-          {/* Free */}
+          {/* Trial */}
           <div className="border border-gray-200 rounded-2xl p-8">
             <div className="mb-6">
-              <h3 className="text-2xl font-bold mb-2">Starter</h3>
+              <h3 className="text-2xl font-bold mb-2">Trial</h3>
               <div className="text-4xl font-bold mb-1">$0<span className="text-lg text-gray-600">/mo</span></div>
-              <p className="text-gray-600 text-sm">Forever free</p>
+              <p className="text-gray-600 text-sm">1 month free</p>
             </div>
             <ul className="space-y-4 mb-8 text-sm text-gray-600">
               <li className="flex items-center gap-3">
@@ -219,7 +219,7 @@ export default function Home() {
               </li>
             </ul>
             <Link href="/signup" className="block w-full text-center px-6 py-3 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition-colors">
-              Get Started
+              Start Trial
             </Link>
           </div>
 
@@ -231,7 +231,7 @@ export default function Home() {
             <div className="mb-6">
               <h3 className="text-2xl font-bold mb-2">Professional</h3>
               <div className="text-4xl font-bold mb-1">$49<span className="text-lg text-gray-600">/mo</span></div>
-              <p className="text-gray-600 text-sm">1 month free trial</p>
+              <p className="text-gray-600 text-sm">Billed monthly</p>
             </div>
             <ul className="space-y-4 mb-8 text-sm text-gray-600">
               <li className="flex items-center gap-3">
@@ -252,7 +252,7 @@ export default function Home() {
               </li>
             </ul>
             <Link href="/signup" className="block w-full text-center px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
-              Start Free Trial
+              Subscribe Now
             </Link>
           </div>
 
