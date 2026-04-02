@@ -1,5 +1,5 @@
 # AI Usage Tracker — Cursor Project Rules
-# Fly.io deployment (not Vercel)
+# EC2 deployment (Docker + PM2)
 
 ## Project Overview
 A B2B SaaS web app that tracks AI provider costs (OpenAI, Anthropic, GCP, AWS).
@@ -11,11 +11,11 @@ Target users: CTOs, engineers, finance leads managing multi-provider AI spend.
 - Styling: Tailwind CSS + shadcn/ui
 - Database + Auth: Supabase (@supabase/supabase-js + @supabase/ssr)
 - Email: Resend (@resend/react + react-email)
-- Cron: Fly.io scheduled machine (hits /api/cron/fetch-usage daily)
+- Cron: EC2 cron job (hits /api/cron/fetch-usage daily)
 - Error tracking: Sentry
-- Deployment: Fly.io via Docker
+- Deployment: EC2 via Docker + PM2
 
-## Critical Next.js Config for Fly.io
+## Critical Next.js Config for Docker
 next.config.js must have:
   output: 'standalone'
 This is required for the Dockerfile to work. Without it, the build fails.
@@ -32,7 +32,7 @@ src/
       providers/page.tsx  # manage connected providers
       settings/page.tsx   # budget + notification prefs
     api/
-      health/route.ts     # GET — Fly.io health check, just return 200
+      health/route.ts     # GET — health check, just return 200
       cron/
         fetch-usage/route.ts  # POST — protected by CRON_SECRET header
       providers/route.ts
@@ -61,12 +61,12 @@ src/
 - Always handle loading + error states in every UI component.
 - Keep components under 150 lines — split if larger.
 
-### Next.js + Fly.io specific
+### Next.js + Docker specific
 - next.config.js MUST have output: 'standalone' — without this Docker build breaks.
 - Never use Vercel-specific features: no vercel.json, no @vercel/og, no edge runtime.
 - Use standard Node.js runtime for all API routes (not edge runtime).
-- The /api/health route must return 200 OK — Fly.io uses it for health checks.
-- No Vercel Cron — cron is handled by a separate Fly.io scheduled machine.
+- The /api/health route must return 200 OK — standard health check endpoint.
+- Cron is handled by EC2 system cron job, not inline with the app.
 
 ### Supabase
 - Never use Supabase client directly in components — use server actions or API routes.
@@ -112,28 +112,22 @@ RESEND_FROM_EMAIL=
 CRON_SECRET=                  # random string — generate: openssl rand -base64 32
 SENTRY_DSN=
 
-## Setting env vars on Fly.io
-fly secrets set NEXT_PUBLIC_SUPABASE_URL=... \
-  NEXT_PUBLIC_SUPABASE_ANON_KEY=... \
-  SUPABASE_SERVICE_ROLE_KEY=... \
-  API_KEY_ENCRYPTION_SECRET=... \
-  RESEND_API_KEY=... \
-  RESEND_FROM_EMAIL=... \
-  CRON_SECRET=...
+## Setting env vars on EC2
+Place all variables in `/opt/ai-traker/.env.local` before running install.sh.
+The install.sh script will automatically load these into the Docker container.
 
 ## Deploy Commands
-fly launch        # first time — creates app + fly.toml, auto-detects Dockerfile
-fly secrets set   # add all env vars
-fly deploy        # every deploy after that
-fly logs          # view logs
-fly ssh console   # SSH into running machine
+SSH into your EC2 instance and run:
+  cd /opt/ai-traker
+  git pull origin main
+  ./install.sh
 
-## Cron Setup on Fly.io
-Run this once after your first deploy to set up the daily usage fetch:
-  fly machine run . \
-    --schedule daily \
-    --entrypoint "/bin/sh /app/cron.sh" \
-    --env CRON_SECRET=your-secret
+This will rebuild the Docker image and restart the app.
+
+## Cron Setup on EC2
+The install.sh script automatically adds a midnight cron job.
+To verify:
+  crontab -l | grep fetch-usage
 
 ## What NOT to build in Phase 2
 - No multi-provider support beyond OpenAI
