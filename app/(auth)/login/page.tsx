@@ -27,8 +27,13 @@ export default function LoginPage() {
   useEffect(() => {
     async function ensureProfile() {
       try {
-        const { data: userData } = await supabase.auth.getUser();
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError) {
+          console.error("Error getting user:", userError);
+          return;
+        }
         if (userData?.user) {
+          console.log("User already logged in, redirecting to onboarding");
           // User is already logged in, ensure their profile exists
           await createProfile(userData.user.id, userData.user.email ?? null);
           router.push(nextPath);
@@ -41,7 +46,7 @@ export default function LoginPage() {
     }
 
     ensureProfile();
-  }, [router]);
+  }, [router, nextPath]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -49,28 +54,45 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      console.log("Attempting login with email:", state.email.trim());
+      
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email: state.email.trim(),
         password: state.password,
       });
 
-      if (signInError) throw signInError;
+      if (signInError) {
+        console.error("Sign in error:", signInError);
+        throw signInError;
+      }
+
+      console.log("Sign in successful, user ID:", data.user?.id);
 
       // After login, ensure profile is created
-      const { data: userData } = await supabase.auth.getUser();
+      const { data: userData, error: getUserError } = await supabase.auth.getUser();
+      if (getUserError) {
+        console.error("Error getting user after signin:", getUserError);
+        throw getUserError;
+      }
+      
       if (userData?.user) {
+        console.log("Creating profile for user:", userData.user.id);
         try {
           await createProfile(userData.user.id, userData.user.email ?? null);
+          console.log("Profile created successfully");
         } catch (profileErr) {
           console.error("Profile creation after login failed:", profileErr);
           // Still redirect even if profile creation fails
         }
       }
 
-      router.push(nextPath);
+      console.log("Redirecting to:", nextPath);
+      await router.push(nextPath);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      const errorMsg = err instanceof Error ? err.message : "Login failed";
+      console.error("Login error:", errorMsg, err);
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }
