@@ -14,28 +14,47 @@ function AuthCallbackContent() {
   useEffect(() => {
     async function handleCallback() {
       try {
-        // Get the hash params from the URL
-        // Supabase sends tokens in URL hash like: #access_token=...&token_type=bearer&type=...
-        console.log("[AuthCallback] Handling callback");
+        console.log("[AuthCallback] Handling callback, current URL:", window.location.href);
+        
+        // Wait a bit for Supabase to process the token from URL
+        await new Promise(resolve => setTimeout(resolve, 500));
         
         // Check if we have an active session
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        console.log("[AuthCallback] Session check:", { hasSession: !!sessionData?.session, sessionError });
+        
         if (sessionError) {
           console.error("[AuthCallback] Session error:", sessionError);
           throw sessionError;
         }
 
         if (!sessionData?.session) {
-          console.log("[AuthCallback] No session found, redirecting to login");
+          console.warn("[AuthCallback] No session found");
+          // Try one more time after a delay
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          const { data: retrySessionData, error: retryError } = await supabase.auth.getSession();
+          console.log("[AuthCallback] Retry session check:", { hasSession: !!retrySessionData?.session, retryError });
+          
+          if (retryError || !retrySessionData?.session) {
+            console.log("[AuthCallback] Still no session, redirecting to login");
+            router.push("/login");
+            return;
+          }
+        }
+
+        const session = sessionData?.session || (await supabase.auth.getSession()).data?.session;
+        if (!session?.user) {
+          console.error("[AuthCallback] No user in session");
           router.push("/login");
           return;
         }
 
-        const user = sessionData.session.user;
-        console.log("[AuthCallback] User authenticated:", user.id);
+        const user = session.user;
+        console.log("[AuthCallback] User authenticated:", user.id, "Email:", user.email);
 
         // Create profile if it doesn't exist
         try {
+          console.log("[AuthCallback] Creating profile...");
           await createProfile(user.id, user.email ?? null);
           console.log("[AuthCallback] Profile created successfully");
         } catch (profileErr) {
@@ -45,15 +64,16 @@ function AuthCallbackContent() {
 
         // Redirect to onboarding
         console.log("[AuthCallback] Redirecting to onboarding");
-        await router.push("/onboarding");
+        router.push("/onboarding");
         router.refresh();
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : "Authentication failed";
-        console.error("[AuthCallback] Error:", errorMsg);
+        console.error("[AuthCallback] Error:", errorMsg, err);
         setError(errorMsg);
         
         // Redirect to login after delay
         setTimeout(() => {
+          console.log("[AuthCallback] Redirecting to login after error");
           router.push("/login");
         }, 3000);
       } finally {
@@ -72,6 +92,7 @@ function AuthCallbackContent() {
             <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
           </div>
           <p className="text-gray-600">Confirming your email...</p>
+          <p className="text-sm text-gray-400 mt-2">Please wait, this may take a few seconds...</p>
         </div>
       </div>
     );

@@ -68,26 +68,10 @@ export default function LoginPage() {
 
       console.log("Sign in successful, user ID:", data.user?.id);
 
-      // After login, ensure profile is created
-      const { data: userData, error: getUserError } = await supabase.auth.getUser();
-      if (getUserError) {
-        console.error("Error getting user after signin:", getUserError);
-        throw getUserError;
-      }
-      
-      if (userData?.user) {
-        console.log("Creating profile for user:", userData.user.id);
-        try {
-          await createProfile(userData.user.id, userData.user.email ?? null);
-          console.log("Profile created successfully");
-        } catch (profileErr) {
-          console.error("Profile creation after login failed:", profileErr);
-          // Still redirect even if profile creation fails
-        }
-      }
-
+      // Profile will be created automatically on onboarding/dashboard page
+      // Don't wait for it here - just redirect
       console.log("Redirecting to:", nextPath);
-      await router.push(nextPath);
+      router.push(nextPath);
       router.refresh();
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : "Login failed";
