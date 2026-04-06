@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 
 import type { OnboardingProviderInput } from "@/lib/actions/onboarding";
 import {
@@ -9,6 +9,8 @@ import {
   saveNotificationPreferences,
   setMonthlyBudget,
 } from "@/lib/actions/onboarding";
+import { createProfile } from "@/lib/actions/auth";
+import { supabase } from "@/lib/supabase-client";
 
 type WizardStep = 0 | 1 | 2;
 
@@ -29,6 +31,27 @@ export default function OnboardingPage() {
   const [step, setStep] = useState<WizardStep>(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Ensure profile is created when component mounts
+  useEffect(() => {
+    async function ensureProfile() {
+      try {
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError || !userData?.user) {
+          console.error("Not authenticated");
+          return;
+        }
+
+        // Try to create profile if it doesn't exist
+        await createProfile(userData.user.id, userData.user.email ?? null);
+      } catch (err) {
+        // Profile might already exist or have a temporary error - don't block onboarding
+        console.error("Profile creation error (non-blocking):", err);
+      }
+    }
+
+    ensureProfile();
+  }, []);
 
   const [selectedProviders, setSelectedProviders] = useState<
     Array<{ providerName: OnboardingProviderInput["providerName"]; displayName: string; apiKey: string }>

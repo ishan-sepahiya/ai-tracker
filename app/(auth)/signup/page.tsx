@@ -54,10 +54,12 @@ export default function SignupPage() {
       if (user) {
         try {
           await createProfile(user.id, user.email ?? null);
-        } catch (profileError) {
-          const message = profileError instanceof Error ? profileError.message : "Failed to create profile";
-          console.error("Profile creation error:", message);
-          setError(`Profile creation failed: ${message}`);
+        } catch (err) {
+          // Profile creation failed, but we can still continue
+          // The profile will be created when they confirm their email
+          console.error("Profile creation during signup failed:", err);
+          setError("Signup initiated. Please check your email to confirm.");
+          setLoading(false);
           return;
         }
       }
@@ -65,11 +67,12 @@ export default function SignupPage() {
       if (data.session) {
         router.push(nextPath);
         router.refresh();
+      } else {
+        // Email confirmation required
+        setError("Please check your email to confirm your signup");
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Signup failed";
-      console.error("Signup error:", message);
-      setError(message);
+      setError(err instanceof Error ? err.message : "Signup failed");
     } finally {
       setLoading(false);
     }

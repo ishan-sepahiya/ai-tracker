@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 
 import { supabase } from "@/lib/supabase-client";
+import { createProfile } from "@/lib/actions/auth";
 
 type LoginState = {
   email: string;
@@ -22,6 +23,26 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Ensure profile exists on mount if already logged in
+  useEffect(() => {
+    async function ensureProfile() {
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user) {
+          // User is already logged in, ensure their profile exists
+          await createProfile(userData.user.id, userData.user.email ?? null);
+          router.push(nextPath);
+          router.refresh();
+        }
+      } catch (err) {
+        // Not critical - user can continue logging in
+        console.error("Profile sync error:", err);
+      }
+    }
+
+    ensureProfile();
+  }, [router]);
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -34,6 +55,17 @@ export default function LoginPage() {
       });
 
       if (signInError) throw signInError;
+
+      // After login, ensure profile is created
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData?.user) {
+        try {
+          await createProfile(userData.user.id, userData.user.email ?? null);
+        } catch (profileErr) {
+          console.error("Profile creation after login failed:", profileErr);
+          // Still redirect even if profile creation fails
+        }
+      }
 
       router.push(nextPath);
       router.refresh();

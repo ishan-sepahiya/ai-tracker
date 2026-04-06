@@ -6,6 +6,8 @@ import Link from "next/link";
 import { createServerClient } from "@supabase/ssr";
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { ensureProfileRow } from "@/lib/auth/server";
+import { ensureTrialSubscriptionAndOwnerTeamMember } from "@/lib/actions/subscriptions";
 import {
   aggregateByProvider,
   compareProviderCosts,
@@ -40,6 +42,16 @@ async function getAuthedUserId() {
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+  
+  // Ensure profile and subscription exist
+  try {
+    await ensureProfileRow(user.id, user.email ?? null);
+    await ensureTrialSubscriptionAndOwnerTeamMember(user.id);
+  } catch (err) {
+    console.error("Profile/subscription creation failed in dashboard:", err);
+    // Don't block dashboard access if profile creation fails
+  }
+  
   return user.id;
 }
 
