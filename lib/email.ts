@@ -108,3 +108,187 @@ export async function sendRedAlert(user: AlertUser, spend: number, limit: number
   });
 }
 
+/**
+ * Send email confirmation link for signup verification
+ */
+export async function sendEmailConfirmation(
+  email: string,
+  confirmationUrl: string,
+  userName?: string
+) {
+  const resend = getResend();
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; color: #111827; max-width: 600px;">
+      <div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 32px; border-radius: 8px 8px 0 0; text-align: center;">
+        <h1 style="margin: 0; color: white; font-size: 24px;">Welcome to AI Tracker</h1>
+      </div>
+      
+      <div style="background: #f9fafb; padding: 32px; border-radius: 0 0 8px 8px;">
+        <p style="margin:0 0 16px 0; color: #374151;">Hi ${userName ?? "there"},</p>
+        <p style="margin:0 0 16px 0; color: #374151;">
+          Thanks for signing up to AI Tracker! Please confirm your email address to get started.
+        </p>
+        
+        <div style="text-align: center; margin: 24px 0;">
+          <a href="${confirmationUrl}" style="
+            display: inline-block;
+            background: #2563eb;
+            color: white;
+            padding: 12px 32px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+          ">Confirm Email</a>
+        </div>
+        
+        <p style="margin:0 0 16px 0; color: #6b7280; font-size: 14px;">
+          Or copy this link: <br/>
+          <code style="background: #e5e7eb; padding: 2px 4px; border-radius: 3px; word-break: break-all;">${confirmationUrl}</code>
+        </p>
+        
+        <p style="margin:0 0 16px 0; color: #6b7280; font-size: 14px;">
+          This link expires in 24 hours.
+        </p>
+        
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+        
+        <p style="margin:0; color: #9ca3af; font-size: 12px; text-align: center;">
+          AI Tracker © 2026. All rights reserved.
+        </p>
+      </div>
+    </div>
+  `;
+
+  await resend.emails.send({
+    from: getFromEmail(),
+    to: email,
+    subject: "Confirm your email - AI Tracker",
+    html,
+  });
+}
+
+/**
+ * Send password reset link
+ */
+export async function sendPasswordReset(
+  email: string,
+  resetUrl: string,
+  userName?: string
+) {
+  const resend = getResend();
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; color: #111827; max-width: 600px;">
+      <div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 32px; border-radius: 8px 8px 0 0; text-align: center;">
+        <h1 style="margin: 0; color: white; font-size: 24px;">Reset Your Password</h1>
+      </div>
+      
+      <div style="background: #f9fafb; padding: 32px; border-radius: 0 0 8px 8px;">
+        <p style="margin:0 0 16px 0; color: #374151;">Hi ${userName ?? "there"},</p>
+        <p style="margin:0 0 16px 0; color: #374151;">
+          We received a request to reset your AI Tracker password. Click the button below to set a new password.
+        </p>
+        
+        <div style="text-align: center; margin: 24px 0;">
+          <a href="${resetUrl}" style="
+            display: inline-block;
+            background: #2563eb;
+            color: white;
+            padding: 12px 32px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+          ">Reset Password</a>
+        </div>
+        
+        <p style="margin:0 0 16px 0; color: #6b7280; font-size: 14px;">
+          Or copy this link: <br/>
+          <code style="background: #e5e7eb; padding: 2px 4px; border-radius: 3px; word-break: break-all;">${resetUrl}</code>
+        </p>
+        
+        <p style="margin:0 0 16px 0; color: #6b7280; font-size: 14px;">
+          This link expires in 1 hour. If you didn't request this, you can ignore this email.
+        </p>
+        
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+        
+        <p style="margin:0; color: #9ca3af; font-size: 12px; text-align: center;">
+          AI Tracker © 2026. All rights reserved.
+        </p>
+      </div>
+    </div>
+  `;
+
+  await resend.emails.send({
+    from: getFromEmail(),
+    to: email,
+    subject: "Reset your AI Tracker password",
+    html,
+  });
+}
+
+/**
+ * Send team member invitation
+ */
+export async function sendTeamInvitation(
+  inviteeEmail: string,
+  inviterName: string,
+  acceptUrl: string
+) {
+  const resend = getResend();
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; color: #111827; max-width: 600px;">
+      <div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 32px; border-radius: 8px 8px 0 0; text-align: center;">
+        <h1 style="margin: 0; color: white; font-size: 24px;">Team Invitation</h1>
+      </div>
+      
+      <div style="background: #f9fafb; padding: 32px; border-radius: 0 0 8px 8px;">
+        <p style="margin:0 0 16px 0; color: #374151;">
+          <b>${inviterName}</b> has invited you to join their team on AI Tracker.
+        </p>
+        <p style="margin:0 0 16px 0; color: #374151;">
+          Start tracking AI spending across all providers with your team.
+        </p>
+        
+        <div style="text-align: center; margin: 24px 0;">
+          <a href="${acceptUrl}" style="
+            display: inline-block;
+            background: #2563eb;
+            color: white;
+            padding: 12px 32px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 16px;
+          ">Accept Invitation</a>
+        </div>
+        
+        <p style="margin:0 0 16px 0; color: #6b7280; font-size: 14px;">
+          Or copy this link: <br/>
+          <code style="background: #e5e7eb; padding: 2px 4px; border-radius: 3px; word-break: break-all;">${acceptUrl}</code>
+        </p>
+        
+        <p style="margin:0 0 16px 0; color: #6b7280; font-size: 14px;">
+          This invitation expires in 7 days.
+        </p>
+        
+        <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;">
+        
+        <p style="margin:0; color: #9ca3af; font-size: 12px; text-align: center;">
+          AI Tracker © 2026. All rights reserved.
+        </p>
+      </div>
+    </div>
+  `;
+
+  await resend.emails.send({
+    from: getFromEmail(),
+    to: inviteeEmail,
+    subject: `${inviterName} invited you to join their team - AI Tracker`,
+    html,
+  });
+}
