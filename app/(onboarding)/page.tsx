@@ -8,11 +8,36 @@ import {
   connectAIProviders,
   saveNotificationPreferences,
   setMonthlyBudget,
+  markOnboardingComplete,
 } from "@/lib/actions/onboarding";
 import { createProfile } from "@/lib/actions/auth";
 import { supabase } from "@/lib/supabase-client";
 
-type WizardStep = 0 | 1 | 2;
+type WizardStep = 0 | 1 | 2 | 3;
+
+const SUBSCRIPTION_PLANS = [
+  {
+    id: "trial",
+    name: "Trial",
+    description: "Perfect for getting started",
+    monthlyPrice: 0,
+    features: ["1 AI provider", "1 team member", "$50 monthly limit", "Email alerts"],
+  },
+  {
+    id: "professional",
+    name: "Professional",
+    description: "For active teams",
+    monthlyPrice: 29,
+    features: ["Unlimited providers", "5 team members", "$500 monthly limit", "Email alerts", "API access"],
+  },
+  {
+    id: "enterprise",
+    name: "Enterprise",
+    description: "Custom for your needs",
+    monthlyPrice: null,
+    features: ["Unlimited everything", "Custom team members", "Custom budget", "Priority support"],
+  },
+];
 
 const PROVIDERS: Array<{
   providerName: OnboardingProviderInput["providerName"];
@@ -31,6 +56,7 @@ export default function OnboardingPage() {
   const [step, setStep] = useState<WizardStep>(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
 
   // Ensure profile is created when component mounts
   useEffect(() => {
@@ -89,7 +115,7 @@ export default function OnboardingPage() {
         })
       );
       await connectAIProviders({ providers });
-      setStep(1);
+      setStep(2);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to connect providers");
     } finally {
@@ -105,7 +131,7 @@ export default function OnboardingPage() {
         monthlyLimitUsd,
         providerNames,
       });
-      setStep(2);
+      setStep(3);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save budget");
     } finally {
@@ -122,10 +148,23 @@ export default function OnboardingPage() {
         alertThresholdPct,
         emailEnabled,
       });
+      // Mark onboarding as completed
+      await markOnboardingComplete();
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save notification preferences");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function onSelectPlan() {
+    setError(null);
+    setLoading(true);
+    try {
+      // TODO: Save selected plan to database if needed
+      setStep(1);
     } finally {
       setLoading(false);
     }
@@ -139,7 +178,7 @@ export default function OnboardingPage() {
       </div>
 
       <div className="flex gap-3 items-center">
-        {[0, 1, 2].map((i) => {
+        {[0, 1, 2, 3].map((i) => {
           const active = step === i;
           return (
             <div key={i} className="flex items-center gap-2">
@@ -167,6 +206,70 @@ export default function OnboardingPage() {
       ) : null}
 
       {step === 0 ? (
+        <div className="space-y-4">
+          <div className="text-lg font-medium">Choose Your Plan</div>
+          <div className="text-sm text-zinc-400 mb-6">
+            Select a plan to get started. You can upgrade anytime.
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {SUBSCRIPTION_PLANS.map((plan) => (
+              <button
+                key={plan.id}
+                type="button"
+                onClick={() => {
+                  setSelectedPlan(plan.id);
+                  onSelectPlan();
+                }}
+                disabled={loading}
+                className={[
+                  "rounded-xl border p-6 text-left transition",
+                  selectedPlan === plan.id
+                    ? "border-zinc-500 bg-zinc-900/60"
+                    : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700",
+                ].join(" ")}
+              >
+                <div className="font-semibold text-zinc-50 mb-1">{plan.name}</div>
+                <div className="text-xs text-zinc-400 mb-4">{plan.description}</div>
+                <div className="text-lg font-bold text-zinc-50 mb-4">
+                  {plan.monthlyPrice === null ? (
+                    <span>Custom pricing</span>
+                  ) : plan.monthlyPrice === 0 ? (
+                    <span>Free</span>
+                  ) : (
+                    <span>${plan.monthlyPrice}/month</span>
+                  )}
+                </div>
+                <div className="space-y-2 mb-4">
+                  {plan.features.map((feature, idx) => (
+                    <div key={idx} className="text-xs text-zinc-300 flex items-start gap-2">
+                      <span className="text-zinc-500 mt-0.5">✓</span>
+                      <span>{feature}</span>
+                    </div>
+                  ))}
+                </div>
+              </button>
+            ))}
+          </div>
+
+          <button
+            type="button"
+            onClick={onSelectPlan}
+            disabled={loading || !selectedPlan}
+            className="w-full rounded-xl bg-zinc-50 text-zinc-950 font-medium py-3 disabled:opacity-60"
+          >
+            {loading ? "Continuing..." : "Continue"}
+          </button>
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">
+          {error}
+        </div>
+      ) : null}
+
+      {step === 1 ? (
         <div className="space-y-4">
           <div className="text-lg font-medium">Connect AI Providers</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
