@@ -60,12 +60,22 @@ export async function requireUser() {
 }
 
 export async function ensureProfileRow(userId: string, email: string | null) {
-  const { error } = await supabaseAdmin.from("profiles").upsert({
-    id: userId,
-    email: email ?? null,
-    full_name: null,
-  });
+  try {
+    console.log("[ensureProfileRow] Upserting profile for user:", userId, "email:", email);
+    const { error } = await supabaseAdmin.from("profiles").upsert({
+      id: userId,
+      email: email ?? null,
+      full_name: null,
+    });
 
-  if (error) throw new Error(error.message);
+    if (error) {
+      console.error("[ensureProfileRow] Database error:", error);
+      throw new Error(`Failed to create profile: ${error.message}`);
+    }
+    console.log("[ensureProfileRow] Success");
+  } catch (err) {
+    console.error("[ensureProfileRow] Caught error:", err);
+    throw err;
+  }
 }
 

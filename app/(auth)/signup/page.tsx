@@ -52,7 +52,14 @@ export default function SignupPage() {
 
       const user = data.user;
       if (user) {
-        await createProfile(user.id, user.email ?? null);
+        try {
+          await createProfile(user.id, user.email ?? null);
+        } catch (profileError) {
+          const message = profileError instanceof Error ? profileError.message : "Failed to create profile";
+          console.error("Profile creation error:", message);
+          setError(`Profile creation failed: ${message}`);
+          return;
+        }
       }
 
       if (data.session) {
@@ -60,7 +67,9 @@ export default function SignupPage() {
         router.refresh();
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Signup failed");
+      const message = err instanceof Error ? err.message : "Signup failed";
+      console.error("Signup error:", message);
+      setError(message);
     } finally {
       setLoading(false);
     }
