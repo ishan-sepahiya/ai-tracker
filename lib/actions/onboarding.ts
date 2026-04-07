@@ -187,14 +187,31 @@ export async function saveNotificationPreferences(input: {
   });
 }
 
-export async function markOnboardingComplete() {
+export async function markOnboardingComplete(selectedPlan: string) {
   const { userId } = await requireUser();
 
-  const { error } = await supabaseAdmin
-    .from("profiles")
-    .update({ onboarding_completed: true })
-    .eq("id", userId);
+  // Validate plan
+  const validPlans = ["trial", "professional", "enterprise"];
+  if (!validPlans.includes(selectedPlan)) {
+    throw new Error("Invalid plan selected");
+  }
 
-  if (error) throw new Error(error.message);
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .update({
+      onboarding_completed: true,
+      selected_plan: selectedPlan,
+    })
+    .eq("id", userId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error marking onboarding complete:", error);
+    throw error;
+  }
+
+  return { success: true, data };
 }
+
 

@@ -15,30 +15,6 @@ import { supabase } from "@/lib/supabase-client";
 
 type WizardStep = 0 | 1 | 2 | 3;
 
-const SUBSCRIPTION_PLANS = [
-  {
-    id: "trial",
-    name: "Trial",
-    description: "Perfect for getting started",
-    monthlyPrice: 0,
-    features: ["1 AI provider", "1 team member", "$50 monthly limit", "Email alerts"],
-  },
-  {
-    id: "professional",
-    name: "Professional",
-    description: "For active teams",
-    monthlyPrice: 29,
-    features: ["Unlimited providers", "5 team members", "$500 monthly limit", "Email alerts", "API access"],
-  },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    description: "Custom for your needs",
-    monthlyPrice: null,
-    features: ["Unlimited everything", "Custom team members", "Custom budget", "Priority support"],
-  },
-];
-
 const PROVIDERS: Array<{
   providerName: OnboardingProviderInput["providerName"];
   displayName: string;
@@ -48,6 +24,30 @@ const PROVIDERS: Array<{
   { providerName: "vertex", displayName: "GCP Vertex" },
   { providerName: "anthropic", displayName: "Anthropic" },
   { providerName: "other", displayName: "Other" },
+];
+
+const PLANS = [
+  {
+    id: "trial",
+    name: "Trial",
+    description: "Perfect for getting started",
+    price: "Free",
+    features: ["5 AI providers", "Real-time usage tracking", "Basic alerts"],
+  },
+  {
+    id: "professional",
+    name: "Professional",
+    description: "For power users",
+    price: "$29/month",
+    features: ["All providers", "Advanced analytics", "Priority alerts", "Team collaboration"],
+  },
+  {
+    id: "enterprise",
+    name: "Enterprise",
+    description: "For organizations",
+    price: "Custom",
+    features: ["Unlimited everything", "Dedicated support", "Custom integrations", "SLA"],
+  },
 ];
 
 export default function OnboardingPage() {
@@ -103,6 +103,15 @@ export default function OnboardingPage() {
     });
   }
 
+  async function onSelectPlan() {
+    if (!selectedPlan) {
+      setError("Please select a plan");
+      return;
+    }
+    setError(null);
+    setStep(1);
+  }
+
   async function onNextFromStep1() {
     setError(null);
     setLoading(true);
@@ -148,23 +157,16 @@ export default function OnboardingPage() {
         alertThresholdPct,
         emailEnabled,
       });
-      // Mark onboarding as completed
-      await markOnboardingComplete();
+      
+      // Mark onboarding as complete with selected plan
+      if (selectedPlan) {
+        await markOnboardingComplete(selectedPlan);
+      }
+      
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save notification preferences");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function onSelectPlan() {
-    setError(null);
-    setLoading(true);
-    try {
-      // TODO: Save selected plan to database if needed
-      setStep(1);
+      setError(err instanceof Error ? err.message : "Failed to complete onboarding");
     } finally {
       setLoading(false);
     }
@@ -207,65 +209,52 @@ export default function OnboardingPage() {
 
       {step === 0 ? (
         <div className="space-y-4">
-          <div className="text-lg font-medium">Choose Your Plan</div>
-          <div className="text-sm text-zinc-400 mb-6">
-            Select a plan to get started. You can upgrade anytime.
+          <div className="text-lg font-medium">Select Your Plan</div>
+          <div className="text-sm text-zinc-400">
+            Choose the plan that best fits your needs. You can upgrade or downgrade anytime.
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {SUBSCRIPTION_PLANS.map((plan) => (
+            {PLANS.map((plan) => (
               <button
                 key={plan.id}
                 type="button"
-                onClick={() => {
-                  setSelectedPlan(plan.id);
-                  onSelectPlan();
-                }}
-                disabled={loading}
+                onClick={() => setSelectedPlan(plan.id)}
                 className={[
-                  "rounded-xl border p-6 text-left transition",
+                  "rounded-xl border p-6 text-left transition flex flex-col gap-3",
                   selectedPlan === plan.id
                     ? "border-zinc-500 bg-zinc-900/60"
                     : "border-zinc-800 bg-zinc-950/40 hover:border-zinc-700",
                 ].join(" ")}
               >
-                <div className="font-semibold text-zinc-50 mb-1">{plan.name}</div>
-                <div className="text-xs text-zinc-400 mb-4">{plan.description}</div>
-                <div className="text-lg font-bold text-zinc-50 mb-4">
-                  {plan.monthlyPrice === null ? (
-                    <span>Custom pricing</span>
-                  ) : plan.monthlyPrice === 0 ? (
-                    <span>Free</span>
-                  ) : (
-                    <span>${plan.monthlyPrice}/month</span>
-                  )}
+                <div>
+                  <div className="font-semibold text-zinc-50 text-lg">{plan.name}</div>
+                  <div className="text-xs text-zinc-400 mt-1">{plan.description}</div>
                 </div>
-                <div className="space-y-2 mb-4">
+                <div className="text-xl font-bold text-zinc-50">{plan.price}</div>
+                <div className="flex-1" />
+                <ul className="space-y-2">
                   {plan.features.map((feature, idx) => (
-                    <div key={idx} className="text-xs text-zinc-300 flex items-start gap-2">
-                      <span className="text-zinc-500 mt-0.5">✓</span>
-                      <span>{feature}</span>
-                    </div>
+                    <li key={idx} className="text-xs text-zinc-400 flex items-start gap-2">
+                      <span className="text-zinc-500 mt-1">•</span>
+                      {feature}
+                    </li>
                   ))}
-                </div>
+                </ul>
               </button>
             ))}
           </div>
 
-          <button
-            type="button"
-            onClick={onSelectPlan}
-            disabled={loading || !selectedPlan}
-            className="w-full rounded-xl bg-zinc-50 text-zinc-950 font-medium py-3 disabled:opacity-60"
-          >
-            {loading ? "Continuing..." : "Continue"}
-          </button>
-        </div>
-      ) : null}
-
-      {error ? (
-        <div className="rounded-xl border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-200">
-          {error}
+          <div className="flex gap-3 pt-4">
+            <button
+              type="button"
+              onClick={onSelectPlan}
+              disabled={loading || !selectedPlan}
+              className="flex-1 rounded-xl bg-zinc-50 text-zinc-950 font-medium py-3 disabled:opacity-60"
+            >
+              {loading ? "Saving..." : "Continue"}
+            </button>
+          </div>
         </div>
       ) : null}
 

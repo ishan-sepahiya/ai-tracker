@@ -40,24 +40,22 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  // Check if user is trying to access dashboard without completing onboarding
-  if (req.nextUrl.pathname.startsWith("/dashboard")) {
-    // Get user's onboarding status from profiles table
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from("profiles")
-      .select("onboarding_completed")
-      .eq("id", data.user.id)
-      .single();
+  const userId = data.user.id;
 
-    if (profileError || profile === null) {
-      // Profile doesn't exist, redirect to onboarding
-      return NextResponse.redirect(new URL("/onboarding", req.url));
-    }
+  // Check if user has completed onboarding
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from("profiles")
+    .select("onboarding_completed")
+    .eq("id", userId)
+    .maybeSingle();
 
-    if (!profile.onboarding_completed) {
-      // Onboarding not completed, redirect
-      return NextResponse.redirect(new URL("/onboarding", req.url));
-    }
+  // If profile doesn't exist or onboarding not completed, redirect to onboarding
+  // unless they're already on the onboarding page
+  if (
+    req.nextUrl.pathname !== "/onboarding" &&
+    (!profile || !profile.onboarding_completed)
+  ) {
+    return NextResponse.redirect(new URL("/onboarding", req.url));
   }
 
   // Only gate dashboard routes; never block auth/billing pages.
