@@ -187,3 +187,14 @@ export async function saveNotificationPreferences(input: {
   });
 }
 
+export async function markOnboardingComplete() {
+  const { userId } = await requireUser();
+
+  const { error } = await supabaseAdmin
+    .from("profiles")
+    .update({ onboarding_completed: true })
+    .eq("id", userId);
+
+  if (error) throw new Error(error.message);
+}
+

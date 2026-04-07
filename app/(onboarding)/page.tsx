@@ -327,6 +327,14 @@ export default function OnboardingPage() {
           <div className="flex gap-3 pt-4">
             <button
               type="button"
+              onClick={() => setStep(0)}
+              disabled={loading}
+              className="flex-1 rounded-xl border border-zinc-800 bg-zinc-950/40 text-zinc-50 font-medium py-3 disabled:opacity-60"
+            >
+              Back
+            </button>
+            <button
+              type="button"
               onClick={onNextFromStep1}
               disabled={loading || selectedProviders.length === 0}
               className="flex-1 rounded-xl bg-zinc-50 text-zinc-950 font-medium py-3 disabled:opacity-60"
@@ -337,7 +345,7 @@ export default function OnboardingPage() {
         </div>
       ) : null}
 
-      {step === 1 ? (
+      {step === 2 ? (
         <div className="space-y-4">
           <div className="text-lg font-medium">Set Monthly Budget</div>
           <div className="text-sm text-zinc-400">
@@ -359,7 +367,7 @@ export default function OnboardingPage() {
           <div className="flex gap-3 pt-4">
             <button
               type="button"
-              onClick={() => setStep(0)}
+              onClick={() => setStep(1)}
               disabled={loading}
               className="flex-1 rounded-xl border border-zinc-800 bg-zinc-950/40 text-zinc-50 font-medium py-3 disabled:opacity-60"
             >
@@ -377,7 +385,7 @@ export default function OnboardingPage() {
         </div>
       ) : null}
 
-      {step === 2 ? (
+      {step === 3 ? (
         <div className="space-y-4">
           <div className="text-lg font-medium">Configure Notification Preferences</div>
 
@@ -417,7 +425,7 @@ export default function OnboardingPage() {
           <div className="flex gap-3 pt-4">
             <button
               type="button"
-              onClick={() => setStep(1)}
+              onClick={() => setStep(2)}
               disabled={loading}
               className="flex-1 rounded-xl border border-zinc-800 bg-zinc-950/40 text-zinc-50 font-medium py-3 disabled:opacity-60"
             >
