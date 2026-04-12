@@ -6,10 +6,6 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next();
 
-  // Turn this on once Razorpay billing is integrated.
-  // When false: allow any authenticated user through to /dashboard/*.
-  const BILLING_ENABLED = false;
-
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!supabaseUrl || !supabaseAnonKey) {
@@ -35,87 +31,18 @@ export async function middleware(req: NextRequest) {
     },
   });
 
-  const { data } = await supabase.auth.getUser();
-  if (!data?.user) {
+  // Check authentication
+  try {
+    const { data } = await supabase.auth.getUser();
+    if (!data?.user) {
+      return NextResponse.redirect(new URL("/login", req.url));
+    }
+  } catch (err) {
+    console.error("Auth check error:", err);
     return NextResponse.redirect(new URL("/login", req.url));
   }
 
-  const userId = data.user.id;
-
-  // Skip onboarding check until RLS is properly configured
-  // Redirect only if specifically on onboarding or explicitly need to complete it
-  if (req.nextUrl.pathname.startsWith("/dashboard")) {
-    // Allow dashboard access temporarily while RLS is being fixed
-  }
-
-  // Only gate dashboard routes; never block auth/billing pages.
-  if (req.nextUrl.pathname.startsWith("/dashboard")) {
-    if (BILLING_ENABLED) {
-      const userId = data.user.id;
-
-      const { data: subscription, error: subscriptionError } =
-        await supabaseAdmin
-          .from("subscriptions")
-          .select("status, trial_ends_at")
-          .eq("owner_user_id", userId)
-          .maybeSingle();
-
-      if (subscriptionError) {
-        // If subscription lookup fails, do not hard-block: send to onboarding.
-        return NextResponse.redirect(new URL("/onboarding", req.url));
-      }
-
-      if (!subscription) {
-        return NextResponse.redirect(new URL("/onboarding", req.url));
-      }
-
-      const now = new Date();
-      const status = subscription.status as
-        | "trialing"
-        | "active"
-        | "past_due"
-        | "cancelled"
-        | null;
-      const trialEndsAt = subscription.trial_ends_at
-        ? new Date(subscription.trial_ends_at)
-        : null;
-
-      if (
-        status === "trialing" &&
-        trialEndsAt &&
-        trialEndsAt.getTime() < now.getTime()
-      ) {
-        return NextResponse.redirect(
-          new URL("/billing?expired=true", req.url)
-        );
-      }
-
-      if (status === "past_due") {
-        return NextResponse.redirect(
-          new URL("/billing?past_due=true", req.url)
-        );
-      }
-
-      if (status === "cancelled") {
-        return NextResponse.redirect(
-          new URL("/billing?cancelled=true", req.url)
-        );
-      }
-
-      if (
-        status === "active" ||
-        (status === "trialing" &&
-          trialEndsAt &&
-          trialEndsAt.getTime() > now.getTime())
-      ) {
-        return res;
-      }
-
-      // Default: send to onboarding if status is unexpected.
-      return NextResponse.redirect(new URL("/onboarding", req.url));
-    }
-  }
-
+  // Allow all authenticated requests through for now
   return res;
 }
 
