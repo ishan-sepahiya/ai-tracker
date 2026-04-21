@@ -3,16 +3,16 @@ module.exports = {
     {
       name: "ai-traker",
       cwd: "/home/ubuntu/ai-tracker",
-      script: "node",
-      args: ".next/standalone/server.js",
+      script: "start-server.js",
       env: {
         NODE_ENV: "production",
-        HOSTNAME: "0.0.0.0",
-        PORT: "3000",
       },
       autorestart: true,
       max_restarts: 10,
+      max_memory_restart: "500M",
       time: true,
+      error_file: "/home/ubuntu/.pm2/logs/ai-traker-error.log",
+      out_file: "/home/ubuntu/.pm2/logs/ai-traker-out.log",
     },
   ],
 };
