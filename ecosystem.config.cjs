@@ -3,8 +3,8 @@ module.exports = {
     {
       name: "ai-traker",
       cwd: "/home/ubuntu/ai-tracker",
-      script: "npm",
-      args: "start",
+      script: "node",
+      args: ".next/standalone/server.js",
       env: {
         NODE_ENV: "production",
         HOSTNAME: "0.0.0.0",
