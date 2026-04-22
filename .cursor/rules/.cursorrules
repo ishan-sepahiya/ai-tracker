@@ -113,12 +113,12 @@ CRON_SECRET=                  # random string — generate: openssl rand -base64
 SENTRY_DSN=
 
 ## Setting env vars on EC2
-Place all variables in `/opt/ai-traker/.env.local` before running install.sh.
+Place all variables in `/opt/ai-tracker/.env.local` before running install.sh.
 The install.sh script will automatically load these into the Docker container.
 
 ## Deploy Commands
 SSH into your EC2 instance and run:
-  cd /opt/ai-traker
+  cd /opt/ai-tracker
   git pull origin main
   ./install.sh
 

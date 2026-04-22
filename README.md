@@ -29,7 +29,7 @@ STRIPE_WEBHOOK_SECRET=
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=
 ```
 
-On EC2, place this file at `/opt/ai-traker/.env.local`.
+On EC2, place this file at `/opt/ai-tracker/.env.local`.
 
 ## 2) One-Time EC2 Bootstrap
 
@@ -38,7 +38,7 @@ Run the installer with required variables:
 ```bash
 chmod +x install.sh
 DOMAIN=yourdomain.com \
-GIT_REPO_URL=https://github.com/your-org/ai-traker.git \
+GIT_REPO_URL=https://github.com/your-org/ai-tracker.git \
 GIT_BRANCH=main \
 CRON_SECRET=your_cron_secret \
 ./install.sh
@@ -46,7 +46,7 @@ CRON_SECRET=your_cron_secret \
 
 What `install.sh` does:
 - Installs Node 20, Docker, Nginx, PM2, certbot
-- Clones or updates the repo in `/opt/ai-traker`
+- Clones or updates the repo in `/opt/ai-tracker`
 - Builds Docker image from `Dockerfile`
 - Runs container through PM2
 - Configures Nginx using `nginx.conf`
@@ -64,8 +64,8 @@ npm run start
 Docker local run:
 
 ```bash
-docker build -t ai-traker:latest .
-docker run --rm -p 3000:3000 --env-file .env.local ai-traker:latest
+docker build -t ai-tracker:latest .
+docker run --rm -p 3000:3000 --env-file .env.local ai-tracker:latest
 ```
 
 ## 4) Supabase Migrations

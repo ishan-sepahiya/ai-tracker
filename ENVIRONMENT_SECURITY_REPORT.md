@@ -125,15 +125,15 @@ cd /home/ubuntu/ai-tracker
 git pull origin main
 
 # Stop old process
-pm2 stop ai-traker
-pm2 delete ai-traker
+pm2 stop ai-tracker
+pm2 delete ai-tracker
 sleep 2
 
 # Start with new config
 pm2 start ecosystem.config.cjs
 
 # Watch startup logs
-pm2 logs ai-traker --follow
+pm2 logs ai-tracker --follow
 ```
 
 ### Expected Output on Startup:

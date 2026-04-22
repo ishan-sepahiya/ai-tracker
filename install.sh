@@ -65,16 +65,16 @@ else
 fi
 
 echo "==> Building Docker image"
-docker build -t ai-traker:latest "$APP_DIR"
+docker build -t ai-tracker:latest "$APP_DIR"
 
 echo "==> Restarting app container via PM2"
 cat > "$APP_DIR/ecosystem.config.cjs" <<'EOF'
 module.exports = {
   apps: [
     {
-      name: "ai-traker",
+      name: "ai-tracker",
       script: "docker",
-      args: "run --rm --name ai-traker -p 3000:3000 --env-file /opt/ai-traker/.env.local ai-traker:latest",
+      args: "run --rm --name ai-tracker -p 3000:3000 --env-file /opt/ai-tracker/.env.local ai-tracker:latest",
       interpreter: "none",
       autorestart: true,
       max_restarts: 10
@@ -83,7 +83,7 @@ module.exports = {
 }
 EOF
 
-pm2 delete ai-traker >/dev/null 2>&1 || true
+pm2 delete ai-tracker >/dev/null 2>&1 || true
 pm2 start "$APP_DIR/ecosystem.config.cjs"
 pm2 save
 pm2 startup systemd -u "$USER" --hp "$HOME" || true
@@ -98,10 +98,10 @@ echo "==> Enabling SSL with certbot"
 sudo certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "admin@$DOMAIN" --redirect
 
 echo "==> Installing cron job for midnight usage fetch"
-CRON_FILE="/tmp/ai-traker-cron"
+CRON_FILE="/tmp/ai-tracker-cron"
 crontab -l > "$CRON_FILE" 2>/dev/null || true
 grep -v "/api/cron/fetch-usage" "$CRON_FILE" > "${CRON_FILE}.new" || true
-echo "0 0 * * * curl -fsS -H \"Authorization: Bearer $CRON_SECRET\" https://$DOMAIN/api/cron/fetch-usage >/tmp/ai-traker-cron.log 2>&1" >> "${CRON_FILE}.new"
+echo "0 0 * * * curl -fsS -H \"Authorization: Bearer $CRON_SECRET\" https://$DOMAIN/api/cron/fetch-usage >/tmp/ai-tracker-cron.log 2>&1" >> "${CRON_FILE}.new"
 crontab "${CRON_FILE}.new"
 rm -f "$CRON_FILE" "${CRON_FILE}.new"
 

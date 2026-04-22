@@ -2,7 +2,7 @@
 # Manual app startup test
 # Run this to test if the app can start manually
 
-cd /home/ubuntu/ai-tracker || cd /opt/ai-traker || { echo "❌ App directory not found"; exit 1; }
+cd /home/ubuntu/ai-tracker || cd /opt/ai-tracker || { echo "❌ App directory not found"; exit 1; }
 
 echo "Starting app manually for testing..."
 echo "Press Ctrl+C to stop"
