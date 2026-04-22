@@ -4,7 +4,7 @@ The site is unreachable - here are the most likely causes and how to fix them:
 
 ## 🔴 Most Likely Issue: Path Mismatch
 
-**Problem:** `ecosystem.config.cjs` points to `/home/ubuntu/ai-tracker` but your app is at `/opt/ai-traker`
+**Problem:** `ecosystem.config.cjs` points to `/home/ubuntu/ai-tracker` but your app is at `/opt/ai-tracker`
 
 **Quick Fix:**
 ```bash
@@ -12,11 +12,11 @@ The site is unreachable - here are the most likely causes and how to fix them:
 ssh -i your-key.pem ubuntu@your-server-ip
 
 # Check which path has your app
-ls -la /opt/ai-traker/.next/standalone/server.js
+ls -la /opt/ai-tracker/.next/standalone/server.js
 ls -la /home/ubuntu/ai-tracker/.next/standalone/server.js
 
-# If app is at /opt/ai-traker, run the fix script:
-cd /opt/ai-traker
+# If app is at /opt/ai-tracker, run the fix script:
+cd /opt/ai-tracker
 bash fix-deployment-paths.sh
 ```
 
@@ -30,13 +30,13 @@ bash fix-deployment-paths.sh
 pm2 status
 
 # Check for errors
-pm2 logs ai-traker --lines 50 --nostream
+pm2 logs ai-tracker --lines 50 --nostream
 ```
 
 ### 2. Identify Actual App Location
 ```bash
 # The app should be at one of these locations
-ls -la /opt/ai-traker/.git
+ls -la /opt/ai-tracker/.git
 ls -la /home/ubuntu/ai-tracker/.git
 
 # Remember the path that has .git for the next steps
@@ -45,8 +45,8 @@ ls -la /home/ubuntu/ai-tracker/.git
 
 ### 3. Stop Current Process
 ```bash
-pm2 stop ai-traker
-pm2 delete ai-traker
+pm2 stop ai-tracker
+pm2 delete ai-tracker
 ```
 
 ### 4. Rebuild the App
@@ -107,7 +107,7 @@ pm2 start ecosystem.config.cjs
 pm2 status
 
 # Watch logs in real-time
-pm2 logs ai-traker
+pm2 logs ai-tracker
 ```
 
 ### 8. Verify Nginx
@@ -122,7 +122,7 @@ sudo systemctl restart nginx
 sudo systemctl status nginx
 
 # Check nginx can reach the app
-curl -H "Host: aispen.site" http://127.0.0.1/
+curl -H "Host: aispend.site" http://127.0.0.1/
 ```
 
 ---
@@ -138,7 +138,7 @@ lsof -i :3000
 sudo kill -9 <PID>
 
 # Or restart from PM2
-pm2 restart ai-traker
+pm2 restart ai-tracker
 ```
 
 ### Issue: "Cannot connect to 127.0.0.1:3000"
@@ -147,7 +147,7 @@ pm2 restart ai-traker
 pm2 status
 
 # Check app logs for errors
-pm2 logs ai-traker --lines 100 --nostream
+pm2 logs ai-tracker --lines 100 --nostream
 
 # Common errors:
 # - Missing NEXT_PUBLIC_SUPABASE_URL
@@ -172,7 +172,7 @@ sudo tail -50 /var/log/nginx/error.log
 ### Issue: "Domain not resolving"
 ```bash
 # Check DNS
-nslookup aispen.site
+nslookup aispend.site
 
 # If not resolving:
 # - Check Route 53 (or your DNS provider)
@@ -188,10 +188,10 @@ nslookup aispen.site
 #!/usr/bin/env bash
 # All-in-one restart script
 
-cd /opt/ai-traker  # Or your app directory
+cd /opt/ai-tracker  # Or your app directory
 
 echo "Stopping PM2..."
-pm2 stop ai-traker || true
+pm2 stop ai-tracker || true
 
 echo "Pulling latest code..."
 git pull origin main
@@ -203,7 +203,7 @@ echo "Building..."
 npm run build
 
 echo "Starting with PM2..."
-pm2 restart ai-traker || pm2 start ecosystem.config.cjs
+pm2 restart ai-tracker || pm2 start ecosystem.config.cjs
 
 echo "Restarting nginx..."
 sudo systemctl restart nginx
@@ -224,12 +224,12 @@ curl -I http://127.0.0.1:3000 || echo "App not responding yet"
 
 After deployment, verify:
 
-- [ ] `pm2 status` shows `ai-traker` running
+- [ ] `pm2 status` shows `ai-tracker` running
 - [ ] `curl http://127.0.0.1:3000` returns HTML (not 502)
 - [ ] `.env.local` has all required variables
 - [ ] `sudo nginx -t` returns "successful"
 - [ ] `sudo systemctl status nginx` shows "active (running)"
-- [ ] Can access `aispen.site` in browser
+- [ ] Can access `aispend.site` in browser
 - [ ] Can reach `/api/providers` endpoint
 - [ ] Can login and see dashboard
 
@@ -239,7 +239,7 @@ After deployment, verify:
 
 1. **Provide PM2 logs:**
    ```bash
-   pm2 logs ai-traker --lines 100 --nostream > logs.txt
+   pm2 logs ai-tracker --lines 100 --nostream > logs.txt
    # Share logs.txt
    ```
 

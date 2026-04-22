@@ -1,7 +1,7 @@
 module.exports = {
   apps: [
     {
-      name: "ai-traker",
+      name: "ai-tracker",
       cwd: "/home/ubuntu/ai-tracker",
       script: "start-server.js",
       env: {
@@ -11,8 +11,8 @@ module.exports = {
       max_restarts: 10,
       max_memory_restart: "500M",
       time: true,
-      error_file: "/home/ubuntu/.pm2/logs/ai-traker-error.log",
-      out_file: "/home/ubuntu/.pm2/logs/ai-traker-out.log",
+      error_file: "/home/ubuntu/.pm2/logs/ai-tracker-error.log",
+      out_file: "/home/ubuntu/.pm2/logs/ai-tracker-out.log",
     },
   ],
 };

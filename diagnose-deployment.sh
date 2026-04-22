@@ -17,9 +17,9 @@ echo "2. PM2 Process Status:"
 pm2 status || echo "❌ PM2 not found"
 echo ""
 
-# Check PM2 logs for ai-traker
+# Check PM2 logs for ai-tracker
 echo "3. PM2 Logs (last 30 lines):"
-pm2 logs ai-traker --lines 30 --nostream 2>/dev/null || echo "❌ PM2 logs unavailable"
+pm2 logs ai-tracker --lines 30 --nostream 2>/dev/null || echo "❌ PM2 logs unavailable"
 echo ""
 
 # Check if port 3000 is listening
@@ -30,7 +30,7 @@ echo ""
 
 # Check Docker status (if using Docker)
 echo "5. Docker Status:"
-docker ps -a | grep ai-traker || echo "❌ No Docker container found"
+docker ps -a | grep ai-tracker || echo "❌ No Docker container found"
 echo ""
 
 # Check Nginx status
@@ -49,10 +49,10 @@ if [ -f "/home/ubuntu/ai-tracker/.env.local" ]; then
   echo "✓ .env.local found at /home/ubuntu/ai-tracker/.env.local"
   echo "Variables set:"
   grep "^[A-Z]" /home/ubuntu/ai-tracker/.env.local | cut -d= -f1
-elif [ -f "/opt/ai-traker/.env.local" ]; then
-  echo "✓ .env.local found at /opt/ai-traker/.env.local"
+elif [ -f "/opt/ai-tracker/.env.local" ]; then
+  echo "✓ .env.local found at /opt/ai-tracker/.env.local"
   echo "Variables set:"
-  grep "^[A-Z]" /opt/ai-traker/.env.local | cut -d= -f1
+  grep "^[A-Z]" /opt/ai-tracker/.env.local | cut -d= -f1
 else
   echo "❌ .env.local NOT FOUND"
 fi
@@ -65,13 +65,13 @@ echo ""
 
 # Check DNS resolution
 echo "10. DNS Resolution:"
-nslookup aispen.site 2>/dev/null || echo "❌ DNS lookup failed"
+nslookup aispend.site 2>/dev/null || echo "❌ DNS lookup failed"
 echo ""
 
 # Check app directory
 echo "11. App Directory Contents:"
 ls -la /home/ubuntu/ai-tracker/.next/standalone/server.js 2>/dev/null && echo "✓ Standalone build found" || echo "❌ Standalone build NOT found"
-ls -la /opt/ai-traker/.next/standalone/server.js 2>/dev/null && echo "✓ Standalone build found" || echo "❌ Standalone build NOT found"
+ls -la /opt/ai-tracker/.next/standalone/server.js 2>/dev/null && echo "✓ Standalone build found" || echo "❌ Standalone build NOT found"
 echo ""
 
 # Check package.json scripts

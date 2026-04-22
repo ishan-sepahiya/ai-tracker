@@ -9,7 +9,7 @@ set -euo pipefail
 DOMAIN="${DOMAIN:-}"
 GIT_REPO_URL="${GIT_REPO_URL:-}"
 GIT_BRANCH="${GIT_BRANCH:-main}"
-APP_DIR="${APP_DIR:-/opt/ai-traker}"
+APP_DIR="${APP_DIR:-/opt/ai-tracker}"
 CRON_SECRET="${CRON_SECRET:-}"
 NODE_MAJOR="${NODE_MAJOR:-20}"
 
