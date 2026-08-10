@@ -24,29 +24,46 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   // Ensure profile exists on mount if already logged in
-  useEffect(() => {
-    async function ensureProfile() {
-      try {
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        if (userError) {
-          console.error("Error getting user:", userError);
+useEffect(() => {
+  async function ensureProfile() {
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      // A missing session is normal on the login page.
+      if (userError) {
+        if (userError.name === "AuthSessionMissingError") {
           return;
         }
-        if (userData?.user) {
-          console.log("User already logged in, redirecting to onboarding");
-          // User is already logged in, ensure their profile exists
-          await createProfile(userData.user.id, userData.user.email ?? null);
-          router.push(nextPath);
-          router.refresh();
-        }
-      } catch (err) {
-        // Not critical - user can continue logging in
-        console.error("Profile sync error:", err);
-      }
-    }
 
-    ensureProfile();
-  }, [router, nextPath]);
+        console.error("Error getting user:", userError);
+        return;
+      }
+
+      // User is already authenticated.
+      if (user) {
+        console.log(
+          "User already logged in, redirecting to onboarding"
+        );
+
+        await createProfile(
+          user.id,
+          user.email ?? null
+        );
+
+        router.push(nextPath);
+        router.refresh();
+      }
+    } catch (err) {
+      console.error("Unexpected profile sync error:", err);
+    }
+  }
+
+  ensureProfile();
+}, [router, nextPath]);
+
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
