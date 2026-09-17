@@ -84,6 +84,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   const routes: Array<{ href: string; label: string; icon: string }> = [
     { href: "/dashboard", label: "Dashboard", icon: "📊" },
     { href: "/dashboard/stats", label: "Analytics", icon: "📈" },
+    { href: "/dashboard/api-management", label: "API Management", icon: "🔑" },
     { href: "/dashboard/providers", label: "Providers", icon: "🔌" },
     { href: "/dashboard/settings", label: "Settings", icon: "⚙️" },
   ];

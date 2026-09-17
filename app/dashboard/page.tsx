@@ -7,7 +7,7 @@ import { createServerClient } from "@supabase/ssr";
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { ensureProfileRow } from "@/lib/auth/server";
-import { ensureTrialSubscriptionAndOwnerTeamMember } from "@/lib/actions/subscriptions";
+//import { ensureTrialSubscriptionAndOwnerTeamMember } from "@/lib/actions/subscriptions";
 import {
   aggregateByProvider,
   compareProviderCosts,
@@ -46,7 +46,7 @@ async function getAuthedUserId() {
   // Ensure profile and subscription exist
   try {
     await ensureProfileRow(user.id, user.email ?? null);
-    await ensureTrialSubscriptionAndOwnerTeamMember(user.id);
+//    await ensureTrialSubscriptionAndOwnerTeamMember(user.id);
   } catch (err) {
     console.error("Profile/subscription creation failed in dashboard:", err);
     // Don't block dashboard access if profile creation fails
