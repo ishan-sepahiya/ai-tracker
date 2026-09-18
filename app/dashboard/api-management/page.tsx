@@ -2,15 +2,24 @@ import { requireUser } from "@/lib/auth/server";
 import { getOrganizationTree } from "@/lib/api-management/service";
 
 import OrganizationTree from "./components/OrganizationTree";
+import ApiManagementActions from "./components/ApiManagementActions";
 
 export default async function ApiManagementPage() {
+  // ---------------------------------------------------------
+  // Authenticate user
+  // ---------------------------------------------------------
   await requireUser();
 
+  // ---------------------------------------------------------
+  // Load organization hierarchy
+  // ---------------------------------------------------------
   const organizations = await getOrganizationTree();
 
   return (
     <main className="space-y-8 p-6 md:p-8">
-      {/* Page Header */}
+      {/* ---------------------------------------------------
+          Page Header
+      --------------------------------------------------- */}
       <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-sm font-medium text-dusk-blue">
@@ -27,17 +36,18 @@ export default async function ApiManagementPage() {
           </p>
         </div>
 
-        <button
-          type="button"
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-prussian-blue px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:opacity-90"
-        >
-          <span className="text-base">+</span>
-          Organization
-        </button>
+        {/* -------------------------------------------------
+            Client-side organization actions
+        ------------------------------------------------- */}
+        <ApiManagementActions />
       </div>
 
-      {/* Organization Hierarchy */}
-      <OrganizationTree organizations={organizations} />
+      {/* ---------------------------------------------------
+          Organization Hierarchy
+      --------------------------------------------------- */}
+      <OrganizationTree
+        organizations={organizations}
+      />
     </main>
   );
 }
