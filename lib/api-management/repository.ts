@@ -12,11 +12,19 @@ import type {
 /**
  * Get all organizations.
  */
-export async function listOrganizations(): Promise<Organization[]> {
-  const { data, error } = await supabaseAdmin
+export async function listOrganizations(
+  ownerUserId?: string,
+): Promise<Organization[]> {
+  let query = supabaseAdmin
     .from("organizations")
     .select("*")
     .order("name", { ascending: true });
+
+  if (ownerUserId) {
+    query = query.eq("owner_user_id", ownerUserId);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     console.error("❌ listOrganizations failed:", error);
@@ -25,8 +33,6 @@ export async function listOrganizations(): Promise<Organization[]> {
       `Failed to load organizations: ${error.message}`,
     );
   }
-
-  console.log("✅ organizations loaded:", data?.length ?? 0);
 
   return (data ?? []) as Organization[];
 }
@@ -176,6 +182,7 @@ export async function listApiKeys(
       `Failed to load API keys: ${error.message}`,
     );
   }
+  return (data ?? []) as ApiKey[];
 
   console.log(
     `✅ API keys loaded for project ${projectId}:`,

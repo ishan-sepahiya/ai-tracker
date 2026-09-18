@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export type TeamContext = {
   userId: string;
-  subscriptionId: string;
+  subscriptionId: string | null;
   organizationId: string;
   role: "owner" | "member";
 };
@@ -21,6 +21,7 @@ async function getAuthenticatedUserId(): Promise<string> {
         getAll() {
           return cookieStore.getAll();
         },
+
         setAll() {
           // Server component: cookie writes are handled by
           // the existing authentication flow.
@@ -44,6 +45,45 @@ async function getAuthenticatedUserId(): Promise<string> {
 export async function getTeamContext(): Promise<TeamContext> {
   const userId = await getAuthenticatedUserId();
 
+  /*
+   * ---------------------------------------------------------
+   * 1. Development / user-owned organization
+   * ---------------------------------------------------------
+   *
+   * During development we allow an authenticated user to work
+   * with their own organization without requiring a subscription.
+   */
+  const {
+    data: ownedOrganization,
+    error: ownedOrganizationError,
+  } = await supabaseAdmin
+    .from("organizations")
+    .select("id, subscription_id")
+    .eq("owner_user_id", userId)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (ownedOrganizationError) {
+    throw new Error(
+      `Failed to load user organization: ${ownedOrganizationError.message}`,
+    );
+  }
+
+  if (ownedOrganization) {
+    return {
+      userId,
+      subscriptionId: ownedOrganization.subscription_id,
+      organizationId: ownedOrganization.id,
+      role: "owner",
+    };
+  }
+
+  /*
+   * ---------------------------------------------------------
+   * 2. Existing subscription owner flow
+   * ---------------------------------------------------------
+   */
   const { data: subscription, error: subscriptionError } =
     await supabaseAdmin
       .from("subscriptions")
@@ -71,20 +111,21 @@ export async function getTeamContext(): Promise<TeamContext> {
       );
     }
 
-    if (!organization) {
-      throw new Error(
-        "No organization is associated with your subscription.",
-      );
+    if (organization) {
+      return {
+        userId,
+        subscriptionId: subscription.id,
+        organizationId: organization.id,
+        role: "owner",
+      };
     }
-
-    return {
-      userId,
-      subscriptionId: subscription.id,
-      organizationId: organization.id,
-      role: "owner",
-    };
   }
 
+  /*
+   * ---------------------------------------------------------
+   * 3. Existing team-member flow
+   * ---------------------------------------------------------
+   */
   const { data: membership, error: membershipError } =
     await supabaseAdmin
       .from("team_members")
