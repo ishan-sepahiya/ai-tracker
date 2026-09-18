@@ -4,11 +4,10 @@ import {
   listApiKeys,
   listDepartments,
   listEnvironments,
+  listOrganizations,
   listProjects,
   listProviderCredentials,
 } from "@/lib/api-management/repository";
-
-import { supabaseAdmin } from "@/lib/supabase-admin";
 
 import type {
   ApiKey,
@@ -36,81 +35,67 @@ export type OrganizationTree = Organization & {
   departments: DepartmentWithResources[];
 };
 
-export async function getOrganizationTree(): Promise<
-  OrganizationTree[]
-> {
+export async function getOrganizationTree(): Promise<OrganizationTree[]> {
+  // Get the currently authenticated user
   const context = await getTeamContext();
 
-  const { data: organization, error } = await supabaseAdmin
-    .from("organizations")
-    .select("*")
-    .eq("id", context.organizationId)
-    .maybeSingle();
+  // IMPORTANT:
+  // Load ALL organizations owned by this user,
+  // instead of loading only context.organizationId.
+  const organizations = await listOrganizations(context.userId);
 
-  if (error) {
-    throw new Error(
-      `Failed to load organization: ${error.message}`,
-    );
-  }
+  const organizationTree: OrganizationTree[] = [];
 
-  if (!organization) {
-    return [];
-  }
+  for (const organization of organizations) {
+    // Get all departments belonging to this organization
+    const departments = await listDepartments(organization.id);
 
-  const departments = await listDepartments(
-    organization.id,
-  );
+    const departmentTree: DepartmentWithResources[] = [];
 
-  const departmentTree: DepartmentWithResources[] = [];
+    for (const department of departments) {
+      // Get all projects belonging to this department
+      const projects = await listProjects(department.id);
 
-  for (const department of departments) {
-    const projects = await listProjects(department.id);
+      const projectTree: ProjectWithResources[] = [];
 
-    const projectTree: ProjectWithResources[] = [];
+      for (const project of projects) {
+        // Get all environments belonging to this project
+        const environments = await listEnvironments(project.id);
 
-    for (const project of projects) {
-      const environments = await listEnvironments(
-        project.id,
-      );
+        const environmentTree: EnvironmentWithResources[] = [];
 
-      const apiKeys = await listApiKeys(project.id);
+        for (const environment of environments) {
+          // Get API keys and provider credentials
+          // belonging to this environment
+          const apiKeys = await listApiKeys(environment.id);
 
-      const providerCredentials =
-        await listProviderCredentials(project.id);
+          const providerCredentials =
+            await listProviderCredentials(environment.id);
 
-      const environmentTree: EnvironmentWithResources[] =
-        environments.map((environment) => ({
-          ...environment,
+          environmentTree.push({
+            ...environment,
+            apiKeys,
+            providerCredentials,
+          });
+        }
 
-          apiKeys: apiKeys.filter(
-            (key) =>
-              key.environment_id === environment.id,
-          ),
+        projectTree.push({
+          ...project,
+          environments: environmentTree,
+        });
+      }
 
-          providerCredentials:
-            providerCredentials.filter(
-              (credential) =>
-                credential.environment_id ===
-                environment.id,
-            ),
-        }));
-
-      projectTree.push({
-        ...project,
-        environments: environmentTree,
+      departmentTree.push({
+        ...department,
+        projects: projectTree,
       });
     }
 
-    departmentTree.push({
-      ...department,
-      projects: projectTree,
+    organizationTree.push({
+      ...organization,
+      departments: departmentTree,
     });
   }
 
-  return [
-    {
-      ...organization,
-      departments: departmentTree,
-    },
-  ];
+  return organizationTree;
 }

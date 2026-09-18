@@ -37,6 +37,29 @@ export async function listOrganizations(
   return (data ?? []) as Organization[];
 }
 
+export async function listOrganizationsByOwner(
+  ownerUserId: string,
+): Promise<Organization[]> {
+  const { data, error } = await supabaseAdmin
+    .from("organizations")
+    .select("*")
+    .eq("owner_user_id", ownerUserId)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error(
+      "❌ listOrganizationsByOwner failed:",
+      error,
+    );
+
+    throw new Error(
+      `Failed to load organizations: ${error.message}`,
+    );
+  }
+
+  return (data ?? []) as Organization[];
+}
+
 /**
  * Get departments belonging to an organization.
  */
