@@ -10,34 +10,9 @@ import type {
 } from "@/lib/api-management/types";
 
 /**
- * Get all organizations.
+ * Get all organizations owned by a specific user.
  */
 export async function listOrganizations(
-  ownerUserId?: string,
-): Promise<Organization[]> {
-  let query = supabaseAdmin
-    .from("organizations")
-    .select("*")
-    .order("name", { ascending: true });
-
-  if (ownerUserId) {
-    query = query.eq("owner_user_id", ownerUserId);
-  }
-
-  const { data, error } = await query;
-
-  if (error) {
-    console.error("❌ listOrganizations failed:", error);
-
-    throw new Error(
-      `Failed to load organizations: ${error.message}`,
-    );
-  }
-
-  return (data ?? []) as Organization[];
-}
-
-export async function listOrganizationsByOwner(
   ownerUserId: string,
 ): Promise<Organization[]> {
   const { data, error } = await supabaseAdmin
@@ -47,10 +22,7 @@ export async function listOrganizationsByOwner(
     .order("created_at", { ascending: true });
 
   if (error) {
-    console.error(
-      "❌ listOrganizationsByOwner failed:",
-      error,
-    );
+    console.error("❌ listOrganizations failed:", error);
 
     throw new Error(
       `Failed to load organizations: ${error.message}`,
@@ -86,11 +58,6 @@ export async function listDepartments(
     );
   }
 
-  console.log(
-    `✅ departments loaded for organization ${organizationId}:`,
-    data?.length ?? 0,
-  );
-
   return (data ?? []) as Department[];
 }
 
@@ -119,11 +86,6 @@ export async function listProjects(
       `Failed to load projects: ${error.message}`,
     );
   }
-
-  console.log(
-    `✅ projects loaded for department ${departmentId}:`,
-    data?.length ?? 0,
-  );
 
   return (data ?? []) as Project[];
 }
@@ -154,23 +116,20 @@ export async function listEnvironments(
     );
   }
 
-  console.log(
-    `✅ environments loaded for project ${projectId}:`,
-    data?.length ?? 0,
-  );
-
   return (data ?? []) as Environment[];
 }
 
 /**
- * Get SDK API keys belonging to a project.
+ * Get SDK API keys belonging to an environment.
  *
  * Important:
- * We intentionally do NOT expose the actual API key.
- * The database stores only key_hash.
+ * The actual API key is never stored here.
+ * The database only contains key_hash.
+ *
+ * We intentionally do NOT expose the raw key.
  */
 export async function listApiKeys(
-  projectId: string,
+  environmentId: string,
 ): Promise<ApiKey[]> {
   const { data, error } = await supabaseAdmin
     .from("api_keys")
@@ -189,14 +148,14 @@ export async function listApiKeys(
         daily_budget
       `,
     )
-    .eq("project_id", projectId)
+    .eq("environment_id", environmentId)
     .order("created_at", { ascending: false });
 
   if (error) {
     console.error(
       "❌ listApiKeys failed:",
       {
-        projectId,
+        environmentId,
         error,
       },
     );
@@ -205,25 +164,22 @@ export async function listApiKeys(
       `Failed to load API keys: ${error.message}`,
     );
   }
-  return (data ?? []) as ApiKey[];
-
-  console.log(
-    `✅ API keys loaded for project ${projectId}:`,
-    data?.length ?? 0,
-  );
 
   return (data ?? []) as ApiKey[];
 }
 
 /**
- * Get provider credentials belonging to a project.
+ * Get provider credentials belonging to an environment.
  *
- * secret_ref is returned here because it is currently part
- * of the database schema, but it MUST NOT be rendered
- * directly in the frontend.
+ * IMPORTANT:
+ * secret_ref must never be rendered or returned to the
+ * browser/frontend.
+ *
+ * The service layer will sanitize this data before it
+ * reaches client components.
  */
 export async function listProviderCredentials(
-  projectId: string,
+  environmentId: string,
 ): Promise<ProviderCredential[]> {
   const { data, error } = await supabaseAdmin
     .from("provider_credentials")
@@ -242,14 +198,14 @@ export async function listProviderCredentials(
         updated_at
       `,
     )
-    .eq("project_id", projectId)
+    .eq("environment_id", environmentId)
     .order("created_at", { ascending: false });
 
   if (error) {
     console.error(
       "❌ listProviderCredentials failed:",
       {
-        projectId,
+        environmentId,
         error,
       },
     );
@@ -258,11 +214,6 @@ export async function listProviderCredentials(
       `Failed to load provider credentials: ${error.message}`,
     );
   }
-
-  console.log(
-    `✅ provider credentials loaded for project ${projectId}:`,
-    data?.length ?? 0,
-  );
 
   return (data ?? []) as ProviderCredential[];
 }
