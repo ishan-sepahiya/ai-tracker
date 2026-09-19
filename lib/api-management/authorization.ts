@@ -7,11 +7,8 @@ export type TeamContext = {
   userId: string;
   subscriptionId: string | null;
 
-  // Kept as a single ID for compatibility with the
-  // existing subscription/team authorization flow.
-  //
-  // API Management itself can now work with multiple
-  // organizations through organization-specific access checks.
+  // Kept for compatibility with the existing
+  // subscription/team authorization flow.
   organizationId: string;
 
   role: "owner" | "member";
@@ -40,8 +37,7 @@ async function getAuthenticatedUserId(): Promise<string> {
         },
 
         setAll() {
-          // Server component / route handler cookie writes are
-          // handled by the existing authentication flow.
+          // Server-side authentication flow handles cookie writes.
         },
       },
     },
@@ -60,28 +56,27 @@ async function getAuthenticatedUserId(): Promise<string> {
 }
 
 /**
- * Existing team context.
+ * Get the current user's API Management context.
  *
- * This remains compatible with the existing subscription/team
- * authorization system.
+ * API Management supports multiple organizations owned by
+ * the authenticated user.
  *
- * IMPORTANT:
- * This should NOT be used by API Management to decide which
- * organizations the user can see.
+ * This function is retained for compatibility with existing
+ * parts of the application that expect a single TeamContext.
  *
- * API Management should use requireOrganizationAccess()
- * with the specific organization ID.
+ * For organization-specific authorization, use
+ * requireOrganizationAccess().
  */
 export async function getTeamContext(): Promise<TeamContext> {
   const userId = await getAuthenticatedUserId();
 
   /*
    * ---------------------------------------------------------
-   * 1. Development / user-owned organization
+   * 1. User-owned organization
    * ---------------------------------------------------------
    *
-   * During development an authenticated user can work with
-   * organizations they own without requiring a subscription.
+   * Development users can access their own organizations
+   * without requiring a subscription.
    */
   const {
     data: ownedOrganization,
@@ -114,12 +109,14 @@ export async function getTeamContext(): Promise<TeamContext> {
    * 2. Existing subscription owner flow
    * ---------------------------------------------------------
    */
-  const { data: subscription, error: subscriptionError } =
-    await supabaseAdmin
-      .from("subscriptions")
-      .select("id, owner_user_id")
-      .eq("owner_user_id", userId)
-      .maybeSingle();
+  const {
+    data: subscription,
+    error: subscriptionError,
+  } = await supabaseAdmin
+    .from("subscriptions")
+    .select("id")
+    .eq("owner_user_id", userId)
+    .maybeSingle();
 
   if (subscriptionError) {
     throw new Error(
@@ -128,12 +125,14 @@ export async function getTeamContext(): Promise<TeamContext> {
   }
 
   if (subscription) {
-    const { data: organization, error: organizationError } =
-      await supabaseAdmin
-        .from("organizations")
-        .select("id")
-        .eq("subscription_id", subscription.id)
-        .maybeSingle();
+    const {
+      data: organization,
+      error: organizationError,
+    } = await supabaseAdmin
+      .from("organizations")
+      .select("id, subscription_id")
+      .eq("subscription_id", subscription.id)
+      .maybeSingle();
 
     if (organizationError) {
       throw new Error(
@@ -156,13 +155,15 @@ export async function getTeamContext(): Promise<TeamContext> {
    * 3. Existing team-member flow
    * ---------------------------------------------------------
    */
-  const { data: membership, error: membershipError } =
-    await supabaseAdmin
-      .from("team_members")
-      .select("subscription_id, role")
-      .eq("user_id", userId)
-      .eq("status", "active")
-      .maybeSingle();
+  const {
+    data: membership,
+    error: membershipError,
+  } = await supabaseAdmin
+    .from("team_members")
+    .select("subscription_id, role")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .maybeSingle();
 
   if (membershipError) {
     throw new Error(
@@ -176,12 +177,14 @@ export async function getTeamContext(): Promise<TeamContext> {
     );
   }
 
-  const { data: organization, error: organizationError } =
-    await supabaseAdmin
-      .from("organizations")
-      .select("id")
-      .eq("subscription_id", membership.subscription_id)
-      .maybeSingle();
+  const {
+    data: organization,
+    error: organizationError,
+  } = await supabaseAdmin
+    .from("organizations")
+    .select("id, subscription_id")
+    .eq("subscription_id", membership.subscription_id)
+    .maybeSingle();
 
   if (organizationError) {
     throw new Error(
@@ -195,30 +198,27 @@ export async function getTeamContext(): Promise<TeamContext> {
     );
   }
 
-  const role =
-    membership.role === "owner" ? "owner" : "member";
-
   return {
     userId,
     subscriptionId: membership.subscription_id,
     organizationId: organization.id,
-    role,
+    role:
+      membership.role === "owner"
+        ? "owner"
+        : "member",
   };
 }
 
 /**
- * Verify that the authenticated user has access to a
- * SPECIFIC organization.
+ * Verify access to a specific organization.
  *
- * This is the authorization function that API Management
- * CRUD operations should use.
+ * Access is granted when:
  *
- * Development:
- *   User owns organization -> allowed
- *
- * Production/team:
- *   Subscription owner -> allowed
- *   Active team member -> allowed
+ * 1. The authenticated user owns the organization.
+ * 2. The organization belongs to a subscription owned by
+ *    the authenticated user.
+ * 3. The authenticated user is an active team member of
+ *    the organization's subscription.
  */
 export async function requireOrganizationAccess(
   organizationId: string,
@@ -231,11 +231,8 @@ export async function requireOrganizationAccess(
 
   /*
    * ---------------------------------------------------------
-   * 1. User directly owns this organization
+   * 1. Direct ownership
    * ---------------------------------------------------------
-   *
-   * This is what enables multiple organizations during
-   * development without hardcoded user IDs.
    */
   const {
     data: ownedOrganization,
@@ -264,16 +261,17 @@ export async function requireOrganizationAccess(
 
   /*
    * ---------------------------------------------------------
-   * 2. Check whether the organization belongs to a
-   *    subscription owned by the current user.
+   * 2. Subscription owner
    * ---------------------------------------------------------
    */
-  const { data: subscription, error: subscriptionError } =
-    await supabaseAdmin
-      .from("subscriptions")
-      .select("id")
-      .eq("owner_user_id", userId)
-      .maybeSingle();
+  const {
+    data: subscription,
+    error: subscriptionError,
+  } = await supabaseAdmin
+    .from("subscriptions")
+    .select("id")
+    .eq("owner_user_id", userId)
+    .maybeSingle();
 
   if (subscriptionError) {
     throw new Error(
@@ -282,13 +280,15 @@ export async function requireOrganizationAccess(
   }
 
   if (subscription) {
-    const { data: organization, error: organizationError } =
-      await supabaseAdmin
-        .from("organizations")
-        .select("id, subscription_id")
-        .eq("id", organizationId)
-        .eq("subscription_id", subscription.id)
-        .maybeSingle();
+    const {
+      data: organization,
+      error: organizationError,
+    } = await supabaseAdmin
+      .from("organizations")
+      .select("id, subscription_id")
+      .eq("id", organizationId)
+      .eq("subscription_id", subscription.id)
+      .maybeSingle();
 
     if (organizationError) {
       throw new Error(
@@ -308,16 +308,18 @@ export async function requireOrganizationAccess(
 
   /*
    * ---------------------------------------------------------
-   * 3. Check active team membership
+   * 3. Active team member
    * ---------------------------------------------------------
    */
-  const { data: membership, error: membershipError } =
-    await supabaseAdmin
-      .from("team_members")
-      .select("subscription_id, role")
-      .eq("user_id", userId)
-      .eq("status", "active")
-      .maybeSingle();
+  const {
+    data: membership,
+    error: membershipError,
+  } = await supabaseAdmin
+    .from("team_members")
+    .select("subscription_id, role")
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .maybeSingle();
 
   if (membershipError) {
     throw new Error(
@@ -326,13 +328,15 @@ export async function requireOrganizationAccess(
   }
 
   if (membership) {
-    const { data: organization, error: organizationError } =
-      await supabaseAdmin
-        .from("organizations")
-        .select("id, subscription_id")
-        .eq("id", organizationId)
-        .eq("subscription_id", membership.subscription_id)
-        .maybeSingle();
+    const {
+      data: organization,
+      error: organizationError,
+    } = await supabaseAdmin
+      .from("organizations")
+      .select("id, subscription_id")
+      .eq("id", organizationId)
+      .eq("subscription_id", membership.subscription_id)
+      .maybeSingle();
 
     if (organizationError) {
       throw new Error(
@@ -353,11 +357,6 @@ export async function requireOrganizationAccess(
     }
   }
 
-  /*
-   * ---------------------------------------------------------
-   * 4. No access
-   * ---------------------------------------------------------
-   */
   throw new Error(
     "Forbidden: You do not have access to this organization.",
   );

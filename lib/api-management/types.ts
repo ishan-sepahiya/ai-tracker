@@ -1,6 +1,7 @@
 export type Organization = {
   id: string;
   name: string;
+  owner_user_id: string | null;
   subscription_id: string | null;
   created_at: string | null;
   updated_at: string | null;
@@ -56,3 +57,8 @@ export type ProviderCredential = {
   created_at: string | null;
   updated_at: string | null;
 };
+
+export type SafeProviderCredential = Omit<
+  ProviderCredential,
+  "secret_ref"
+>;
