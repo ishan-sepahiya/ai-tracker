@@ -2,6 +2,10 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import {
+  ORGANIZATION_LIMIT_MESSAGE,
+  canCreateOrganization,
+} from "@/lib/api-management/rules";
 
 async function getAuthenticatedUser() {
   const cookieStore = await cookies();
@@ -100,6 +104,9 @@ export async function GET() {
  * POST
  *
  * Create a new organization owned by the authenticated user.
+ *
+ * Rule: each user may own only ONE organization.
+ * Returns 409 if the user already has one.
  */
 export async function POST(request: Request) {
   try {
@@ -125,6 +132,37 @@ export async function POST(request: Request) {
           error: "Organization name is required.",
         },
         { status: 400 },
+      );
+    }
+
+    // ---------------------------------------------------------
+    // Rule: one organization per user
+    // ---------------------------------------------------------
+    const { count, error: countError } = await supabaseAdmin
+      .from("organizations")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_user_id", user.id);
+
+    if (countError) {
+      console.error(
+        "❌ Failed to check existing organizations:",
+        countError,
+      );
+
+      return Response.json(
+        {
+          error: "Failed to verify organization limit.",
+        },
+        { status: 500 },
+      );
+    }
+
+    if (!canCreateOrganization(count ?? 0)) {
+      return Response.json(
+        {
+          error: ORGANIZATION_LIMIT_MESSAGE,
+        },
+        { status: 409 },
       );
     }
 
@@ -154,6 +192,17 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
+      // 23505 = unique violation. Happens if two create requests race
+      // and the database unique index on owner_user_id blocks the second.
+      if (error.code === "23505") {
+        return Response.json(
+          {
+            error: ORGANIZATION_LIMIT_MESSAGE,
+          },
+          { status: 409 },
+        );
+      }
+
       console.error(
         "❌ Failed to create organization:",
         error,
@@ -307,8 +356,10 @@ export async function PATCH(request: Request) {
  *
  * Delete an organization owned by the authenticated user.
  *
- * Child records should be removed by the database's
- * configured foreign-key cascade rules.
+ * Child records (departments, projects, environments, API keys,
+ * provider credentials) are removed by the database's ON DELETE
+ * CASCADE foreign-key rules. Run the cascade SQL in Supabase first,
+ * otherwise this fails with a foreign key constraint error.
  */
 export async function DELETE(request: Request) {
   try {

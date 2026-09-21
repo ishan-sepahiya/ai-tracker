@@ -1,5 +1,6 @@
 import { requireUser } from "@/lib/auth/server";
 import { getOrganizationTree } from "@/lib/api-management/service";
+import { canCreateOrganization } from "@/lib/api-management/rules";
 
 import OrganizationTree from "./components/OrganizationTree";
 import ApiManagementActions from "./components/ApiManagementActions";
@@ -9,6 +10,9 @@ export default async function ApiManagementPage() {
   await requireUser();
 
   const organizations = await getOrganizationTree();
+
+  // Rule: one organization per user. Only offer "create" when none exists.
+  const showCreateButton = canCreateOrganization(organizations.length);
 
   return (
     <main className="mx-auto w-full max-w-7xl space-y-8 p-6 md:p-8">
@@ -29,7 +33,7 @@ export default async function ApiManagementPage() {
           </p>
         </div>
 
-        <ApiManagementActions />
+        {showCreateButton && <ApiManagementActions organizations={[]} />}
       </header>
 
       {/* KPI metrics + date range */}
