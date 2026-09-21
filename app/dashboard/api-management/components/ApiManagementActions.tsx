@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Plus } from "lucide-react";
 
 import CreateOrganizationModal from "./CreateOrganizationModal";
 
@@ -18,8 +19,8 @@ export default function ApiManagementActions() {
         }}
         className="inline-flex items-center justify-center gap-2 rounded-lg bg-prussian-blue px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:opacity-90"
       >
-        <span className="text-base">+</span>
-        Organization
+        <Plus className="h-4 w-4" aria-hidden />
+        New Organization
       </button>
 
       {/* Create Organization Modal */}
