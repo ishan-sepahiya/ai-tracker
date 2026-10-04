@@ -7,17 +7,25 @@ import { createServerClient } from "@supabase/ssr";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { aggregateByProvider } from "@/lib/analysis/engine";
 import SignOutButton from "@/app/_components/auth/SignOutButton";
+import DashboardNav from "@/app/dashboard/components/DashboardNav";
 
 function monthYearUTC(d: Date) {
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
+  return `${d.getUTCFullYear()}-${String(
+    d.getUTCMonth() + 1,
+  ).padStart(2, "0")}`;
 }
 
 async function getAuthedUser() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+  const supabaseAnonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Missing Supabase env");
+    throw new Error(
+      "Missing Supabase env",
+    );
   }
 
   const cookieStorePromise = cookies();
@@ -28,20 +36,27 @@ async function getAuthedUser() {
     {
       cookies: {
         getAll: async () =>
-          (await cookieStorePromise).getAll().map((c) => ({
-            name: c.name,
-            value: c.value,
-          })),
+          (await cookieStorePromise)
+            .getAll()
+            .map((c) => ({
+              name: c.name,
+              value: c.value,
+            })),
 
         setAll: async () => {},
       },
-    }
+    },
   );
 
-  const { data, error } = await supabase.auth.getUser();
+  const {
+    data,
+    error,
+  } = await supabase.auth.getUser();
 
   if (error) {
-    throw new Error(error.message);
+    throw new Error(
+      error.message,
+    );
   }
 
   return data.user ?? null;
@@ -58,7 +73,8 @@ export default async function DashboardLayout({
     redirect("/login");
   }
 
-  const monthYear = monthYearUTC(new Date());
+  const monthYear =
+    monthYearUTC(new Date());
 
   /*
    * --------------------------------------------------------------------------
@@ -66,41 +82,70 @@ export default async function DashboardLayout({
    * --------------------------------------------------------------------------
    */
 
-  const profilePromise = supabaseAdmin
-    .from("profiles")
-    .select("id,email,full_name")
-    .eq("id", user.id)
-    .maybeSingle();
+  const profilePromise =
+    supabaseAdmin
+      .from("profiles")
+      .select(
+        "id,email,full_name",
+      )
+      .eq("id", user.id)
+      .maybeSingle();
 
-  const subscriptionPromise = supabaseAdmin
-    .from("subscriptions")
-    .select("plan_id,status,trial_ends_at,current_period_end")
-    .eq("owner_user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const subscriptionPromise =
+    supabaseAdmin
+      .from("subscriptions")
+      .select(
+        "plan_id,status,trial_ends_at,current_period_end",
+      )
+      .eq(
+        "owner_user_id",
+        user.id,
+      )
+      .order(
+        "created_at",
+        {
+          ascending: false,
+        },
+      )
+      .limit(1)
+      .maybeSingle();
 
-  const [{ data: profile }, { data: subscription }] = await Promise.all([
+  const [
+    { data: profile },
+    { data: subscription },
+  ] = await Promise.all([
     profilePromise,
     subscriptionPromise,
   ]);
 
-  const planPromise = subscription?.plan_id
-    ? supabaseAdmin
-        .from("subscription_plans")
-        .select("name")
-        .eq("id", subscription.plan_id)
-        .maybeSingle()
-    : Promise.resolve({ data: null });
+  const planPromise =
+    subscription?.plan_id
+      ? supabaseAdmin
+          .from(
+            "subscription_plans",
+          )
+          .select("name")
+          .eq(
+            "id",
+            subscription.plan_id,
+          )
+          .maybeSingle()
+      : Promise.resolve({
+          data: null,
+        });
 
-  const { data: planRow } = await planPromise;
+  const { data: planRow } =
+    await planPromise;
 
-  const planName = planRow?.name ?? "trial";
+  const planName =
+    planRow?.name ??
+    "trial";
 
   const planLabel =
     planName === "trial"
       ? "Trial"
-      : planName[0].toUpperCase() + planName.slice(1);
+      : planName[0].toUpperCase() +
+        planName.slice(1);
 
   /*
    * --------------------------------------------------------------------------
@@ -108,28 +153,59 @@ export default async function DashboardLayout({
    * --------------------------------------------------------------------------
    */
 
-  const [breakdown, budgetRows] = await Promise.all([
-    aggregateByProvider(user.id, monthYear),
+  const [
+    breakdown,
+    budgetRows,
+  ] = await Promise.all([
+    aggregateByProvider(
+      user.id,
+      monthYear,
+    ),
 
     supabaseAdmin
       .from("budgets")
-      .select("monthly_limit_usd")
-      .eq("user_id", user.id),
+      .select(
+        "monthly_limit_usd",
+      )
+      .eq(
+        "user_id",
+        user.id,
+      ),
   ]);
 
-  const monthSpend = breakdown.reduce(
-    (sum, p) => sum + Number(p.total_cost_usd ?? 0),
-    0
-  );
+  const monthSpend =
+    breakdown.reduce(
+      (sum, p) =>
+        sum +
+        Number(
+          p.total_cost_usd ??
+            0,
+        ),
+      0,
+    );
 
-  const monthlyLimit = (budgetRows.data ?? []).reduce(
-    (sum, r) => sum + Number(r.monthly_limit_usd ?? 0),
-    0
-  );
+  const monthlyLimit =
+    (
+      budgetRows.data ??
+      []
+    ).reduce(
+      (sum, r) =>
+        sum +
+        Number(
+          r.monthly_limit_usd ??
+            0,
+        ),
+      0,
+    );
 
   const progressPct =
     monthlyLimit > 0
-      ? Math.min(100, (monthSpend / monthlyLimit) * 100)
+      ? Math.min(
+          100,
+          (monthSpend /
+            monthlyLimit) *
+            100,
+        )
       : 0;
 
   /*
@@ -161,11 +237,17 @@ export default async function DashboardLayout({
     },
   ];
 
-  const displayEmail = profile?.email ?? user.email ?? "";
+  const displayEmail =
+    profile?.email ??
+    user.email ??
+    "";
 
-  const userInitial = displayEmail
-    ? displayEmail.charAt(0).toUpperCase()
-    : "U";
+  const userInitial =
+    displayEmail
+      ? displayEmail
+          .charAt(0)
+          .toUpperCase()
+      : "U";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -176,11 +258,9 @@ export default async function DashboardLayout({
 
       <header className="sticky top-0 z-50 border-b border-gray-200 bg-white">
 
-        <div className="mx-auto flex min-h-[72px] w-full max-w-[1600px] items-center px-6">
+        <div className="mx-auto flex min-h-[72px] w-full max-w-[1600px] items-center px-4 sm:px-6">
 
-          {/* -------------------------------------------------------------- */}
-          {/* LOGO                                                           */}
-          {/* -------------------------------------------------------------- */}
+          {/* LOGO */}
 
           <Link
             href="/dashboard"
@@ -190,44 +270,22 @@ export default async function DashboardLayout({
               AI-t
             </div>
 
-            <span className="text-lg font-bold tracking-tight text-gray-900">
+            <span className="hidden text-lg font-bold tracking-tight text-gray-900 sm:block">
               AI Tracker
             </span>
           </Link>
 
-          {/* -------------------------------------------------------------- */}
-          {/* NAVIGATION                                                     */}
-          {/* -------------------------------------------------------------- */}
+          {/* NAVIGATION */}
 
-          <nav className="ml-10 hidden items-center gap-1 md:flex">
-            {routes.map((route) => (
-              <Link
-                key={route.href}
-                href={route.href}
-                className="
-                  rounded-lg
-                  px-4
-                  py-2.5
-                  text-sm
-                  font-medium
-                  text-gray-600
-                  transition-colors
-                  hover:bg-gray-100
-                  hover:text-gray-900
-                "
-              >
-                {route.label}
-              </Link>
-            ))}
-          </nav>
+          <DashboardNav
+            routes={routes}
+          />
 
-          {/* -------------------------------------------------------------- */}
-          {/* RIGHT SIDE                                                     */}
-          {/* -------------------------------------------------------------- */}
+          {/* RIGHT SIDE */}
 
           <div className="ml-auto flex items-center gap-3">
 
-            {/* User information */}
+            {/* User Information */}
 
             <div className="hidden items-center gap-3 rounded-lg px-2 py-1.5 sm:flex">
 
@@ -245,45 +303,13 @@ export default async function DashboardLayout({
 
             <div className="hidden h-7 w-px bg-gray-200 sm:block" />
 
-            {/* Sign out */}
+            {/* Sign Out */}
 
-            <SignOutButton />
+            <div className="shrink-0">
+              <SignOutButton />
+            </div>
 
           </div>
-
-        </div>
-
-        {/* ---------------------------------------------------------------- */}
-        {/* MOBILE NAVIGATION                                                */}
-        {/* ---------------------------------------------------------------- */}
-
-        <div className="border-t border-gray-100 px-4 py-2 md:hidden">
-
-          <nav className="flex gap-1 overflow-x-auto">
-
-            {routes.map((route) => (
-              <Link
-                key={route.href}
-                href={route.href}
-                className="
-                  shrink-0
-                  rounded-lg
-                  px-3
-                  py-2
-                  text-sm
-                  font-medium
-                  text-gray-600
-                  transition-colors
-                  hover:bg-gray-100
-                  hover:text-gray-900
-                "
-              >
-                {route.label}
-              </Link>
-            ))}
-
-          </nav>
-
         </div>
 
       </header>
@@ -294,7 +320,7 @@ export default async function DashboardLayout({
 
       <main className="min-h-[calc(100vh-72px)]">
 
-        <div className="mx-auto w-full max-w-[1600px] px-6 py-8 lg:px-8">
+        <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
 
           {children}
 
