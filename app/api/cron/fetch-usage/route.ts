@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { fetchOpenAIUsageRecord } from "@/lib/providers/openai";
+import {
+  decryptProviderSecret,
+  encryptProviderSecret,
+  isEncryptedProviderSecret,
+} from "@/lib/crypto";
+import { fetchOpenAIUsageRecord} from "@/lib/providers/openai";
 import { fetchAnthropicUsageRecord } from "@/lib/providers/anthropic";
 import { fetchAwsUsageRecord } from "@/lib/providers/aws";
 import { fetchGcpUsageRecord } from "@/lib/providers/gcp";
@@ -149,10 +154,6 @@ async function loadProjectContexts(
     return result;
   }
 
-  // ----------------------------------------------------------
-  // PROJECTS
-  // ----------------------------------------------------------
-
   const {
     data: projects,
     error: projectsError,
@@ -190,10 +191,6 @@ async function loadProjectContexts(
     return result;
   }
 
-  // ----------------------------------------------------------
-  // DEPARTMENTS
-  // ----------------------------------------------------------
-
   const {
     data: departments,
     error: departmentsError,
@@ -226,10 +223,6 @@ async function loadProjectContexts(
         )
       )
     );
-
-  // ----------------------------------------------------------
-  // ORGANIZATIONS
-  // ----------------------------------------------------------
 
   const organizationById =
     new Map<
@@ -266,10 +259,6 @@ async function loadProjectContexts(
       );
     }
   }
-
-  // ----------------------------------------------------------
-  // BUILD MAPS
-  // ----------------------------------------------------------
 
   const departmentById =
     new Map<
@@ -342,8 +331,6 @@ async function upsertUsageRecordCron(
     providerCredentialId?: string | null;
   }
 ) {
-  // Only match an existing cron row.
-  // SDK usage rows should remain separate.
   const {
     data: existing,
     error: existingError,
@@ -416,10 +403,6 @@ async function upsertUsageRecordCron(
       null,
   };
 
-  // ----------------------------------------------------------
-  // UPDATE
-  // ----------------------------------------------------------
-
   if (existing?.id) {
     const {
       error: updateError,
@@ -439,10 +422,6 @@ async function upsertUsageRecordCron(
 
     return;
   }
-
-  // ----------------------------------------------------------
-  // INSERT
-  // ----------------------------------------------------------
 
   const {
     error: insertError,
@@ -465,10 +444,6 @@ export async function GET(
   request: Request
 ) {
   try {
-    // --------------------------------------------------------
-    // AUTHENTICATION
-    // --------------------------------------------------------
-
     if (
       !isAuthorized(
         request.headers.get(
@@ -486,10 +461,6 @@ export async function GET(
       now
         .toISOString()
         .slice(0, 10);
-
-    // --------------------------------------------------------
-    // MONTH BOUNDARIES
-    // --------------------------------------------------------
 
     const monthYear =
       `${now.getUTCFullYear()}-${String(
@@ -524,10 +495,6 @@ export async function GET(
         .toISOString()
         .slice(0, 10);
 
-    // ========================================================
-    // LOAD ACTIVE PROVIDER METADATA
-    // ========================================================
-
     const {
       data: providers,
       error: providersError,
@@ -556,10 +523,6 @@ export async function GET(
     const activeProviders =
       (providers ??
         []) as ProviderRow[];
-
-    // ========================================================
-    // LOAD ACTIVE PROVIDER CREDENTIALS
-    // ========================================================
 
     const {
       data: credentialRows,
@@ -602,10 +565,6 @@ export async function GET(
       (credentialRows ??
         []) as ProviderCredentialRow[];
 
-    // ========================================================
-    // LOAD HIERARCHY CONTEXT
-    // ========================================================
-
     const projectIds =
       Array.from(
         new Set(
@@ -620,17 +579,6 @@ export async function GET(
       await loadProjectContexts(
         projectIds
       );
-
-    // ========================================================
-    // BUILD BEST CREDENTIAL PER USER + PROVIDER
-    //
-    // Billing adapters return account-level usage. We therefore
-    // choose one active credential per user/provider instead of
-    // calling the same billing account multiple times and
-    // accidentally duplicating costs.
-    //
-    // Most recently updated credential wins.
-    // ========================================================
 
     const providerByUserAndName =
       new Map<
@@ -746,10 +694,6 @@ export async function GET(
       }
     }
 
-    // ========================================================
-    // FETCH + STORE USAGE
-    // ========================================================
-
     const results: Array<{
       providerId: string;
       providerName: string;
@@ -783,15 +727,53 @@ export async function GET(
           );
         }
 
-        // `secret_ref` is the current credential storage field
-        // used by the API Management provider-credential flow.
-        const apiKey =
+        // Provider secrets are encrypted at rest. Legacy plaintext
+        // credentials are still accepted once so they can be migrated
+        // without breaking existing integrations.
+        const storedSecret =
           credential.secret_ref?.trim();
 
-        if (!apiKey) {
+        if (!storedSecret) {
           throw new Error(
             "Provider credential does not contain a usable secret."
           );
+        }
+
+        const apiKey =
+          decryptProviderSecret(storedSecret);
+
+        if (!apiKey.trim()) {
+          throw new Error(
+            "Provider credential does not contain a usable secret."
+          );
+        }
+
+        if (!isEncryptedProviderSecret(storedSecret)) {
+          try {
+            const encryptedSecret =
+              encryptProviderSecret(apiKey);
+
+            const { error: migrationError } =
+              await supabaseAdmin
+                .from("provider_credentials")
+                .update({
+                  secret_ref: encryptedSecret,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", credential.id);
+
+            if (migrationError) {
+              console.error(
+                "Failed to migrate legacy provider credential:",
+                migrationError.message
+              );
+            }
+          } catch (migrationError) {
+            console.error(
+              "Failed to encrypt legacy provider credential:",
+              migrationError
+            );
+          }
         }
 
         const usageRecord =
@@ -875,20 +857,12 @@ export async function GET(
       }
     }
 
-    // ========================================================
-    // COMPUTE SDK COSTS
-    // ========================================================
-
     try {
       await computeCosts();
     } catch {
       // Cost computation should not make the entire
       // scheduled billing job fail.
     }
-
-    // ========================================================
-    // USERS FOR ALERTS
-    // ========================================================
 
     const userIds =
       Array.from(
@@ -920,10 +894,6 @@ export async function GET(
         alerts_sent: 0,
       });
     }
-
-    // ========================================================
-    // LOAD BUDGET / ALERT DATA
-    // ========================================================
 
     const [
       usageRowsRes,
@@ -984,10 +954,6 @@ export async function GET(
         ),
     ]);
 
-    // ========================================================
-    // NORMALIZE DATA
-    // ========================================================
-
     const usageRows =
       (usageRowsRes.data ??
         []) as Array<{
@@ -1024,10 +990,6 @@ export async function GET(
           | null;
       }>;
 
-    // ========================================================
-    // SPEND BY USER
-    // ========================================================
-
     const spendByUser =
       new Map<string, number>();
 
@@ -1050,10 +1012,6 @@ export async function GET(
           )
       );
     }
-
-    // ========================================================
-    // LIMIT BY USER
-    // ========================================================
 
     const limitByUser =
       new Map<string, number>();
@@ -1106,10 +1064,6 @@ export async function GET(
       }
     }
 
-    // ========================================================
-    // ALERT HISTORY
-    // ========================================================
-
     const alertedThisMonth =
       new Set(
         alerts.map(
@@ -1117,10 +1071,6 @@ export async function GET(
             alert.user_id
         )
       );
-
-    // ========================================================
-    // PROFILE MAP
-    // ========================================================
 
     const profileById =
       new Map<
@@ -1142,10 +1092,6 @@ export async function GET(
           ]
         )
       );
-
-    // ========================================================
-    // BUDGET ALERTS
-    // ========================================================
 
     let alerts_sent = 0;
 
@@ -1242,7 +1188,6 @@ export async function GET(
       if (
         !alertInsertError
       ) {
-        // Alert log is authoritative for duplicate prevention.
         try {
           if (
             alertType ===
@@ -1268,10 +1213,6 @@ export async function GET(
         }
       }
     }
-
-    // ========================================================
-    // RESULT
-    // ========================================================
 
     const succeeded =
       results.filter(

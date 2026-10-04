@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 
+import {
+  encryptProviderSecret,
+} from "@/lib/crypto";
 import { requireUser } from "@/lib/auth/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { requireOrganizationAccess } from "@/lib/api-management/authorization";
@@ -331,7 +334,8 @@ export async function POST(
           provider_name: providerName,
           display_name:
             displayName || null,
-          secret_ref: secret,
+          secret_ref:
+            encryptProviderSecret(secret),
           status: "active",
           created_by: user.userId,
           rotated_at: now,
@@ -472,7 +476,8 @@ export async function PATCH(
     }
 
     if (secret) {
-      updates.secret_ref = secret;
+      updates.secret_ref =
+        encryptProviderSecret(secret);
       updates.rotated_at =
         new Date().toISOString();
       updates.status = "active";
