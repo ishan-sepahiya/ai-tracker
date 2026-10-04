@@ -104,9 +104,6 @@ export async function GET() {
  * POST
  *
  * Create a new organization owned by the authenticated user.
- *
- * Rule: each user may own only ONE organization.
- * Returns 409 if the user already has one.
  */
 export async function POST(request: Request) {
   try {
@@ -135,6 +132,32 @@ export async function POST(request: Request) {
       );
     }
 
+// Ensure the authenticated user has a profile.
+const { error: profileError } = await supabaseAdmin
+  .from("profiles")
+  .upsert(
+    {
+      id: user.id,
+      email: user.email ?? null,
+      full_name: user.user_metadata?.full_name ?? null,
+    },
+    { onConflict: "id" },
+  );
+
+if (profileError) {
+  console.error(
+    "Failed to ensure user profile:",
+    profileError,
+  );
+
+  return Response.json(
+    {
+      error: "Failed to initialize your user profile.",
+    },
+    { status: 500 },
+  );
+}
+     
     // ---------------------------------------------------------
     // Rule: one organization per user
     // ---------------------------------------------------------
@@ -356,10 +379,8 @@ export async function PATCH(request: Request) {
  *
  * Delete an organization owned by the authenticated user.
  *
- * Child records (departments, projects, environments, API keys,
- * provider credentials) are removed by the database's ON DELETE
- * CASCADE foreign-key rules. Run the cascade SQL in Supabase first,
- * otherwise this fails with a foreign key constraint error.
+ * Child records should be removed by the database's
+ * configured foreign-key cascade rules.
  */
 export async function DELETE(request: Request) {
   try {

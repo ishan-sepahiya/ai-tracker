@@ -24,7 +24,7 @@ export type OrganizationAccess = {
 /**
  * Get the currently authenticated Supabase user ID.
  */
-async function getAuthenticatedUserId(): Promise<string> {
+ export async function getAuthenticatedUserId(): Promise<string> {
   const cookieStore = await cookies();
 
   const supabase = createServerClient(

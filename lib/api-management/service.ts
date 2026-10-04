@@ -1,4 +1,4 @@
-import { getTeamContext } from "@/lib/api-management/authorization";
+import { getAuthenticatedUserId } from "@/lib/api-management/authorization";
 
 import {
   listApiKeys,
@@ -55,10 +55,10 @@ function sanitizeProviderCredential(
 export async function getOrganizationTree(): Promise<
   OrganizationTree[]
 > {
-  const context = await getTeamContext();
+  const context = await getAuthenticatedUserId();
 
   const organizations =
-    await listOrganizations(context.userId);
+    await listOrganizations(context);
 
   const organizationTree: OrganizationTree[] = [];
 

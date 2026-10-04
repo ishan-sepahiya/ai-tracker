@@ -1,46 +1,55 @@
 import { requireUser } from "@/lib/auth/server";
 import { getOrganizationTree } from "@/lib/api-management/service";
-import { canCreateOrganization } from "@/lib/api-management/rules";
 
-import OrganizationTree from "./components/OrganizationTree";
 import ApiManagementActions from "./components/ApiManagementActions";
-import MetricsOverview from "./components/MetricsOverview";
+import InfrastructureWorkspace from "./components/workspace/InfrastructureWorkspace";
 
-export default async function ApiManagementPage() {
+export default async function ApiManagementPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ node?: string | string[] }>;
+}) {
   await requireUser();
 
   const organizations = await getOrganizationTree();
+  const { node } = await searchParams;
+  const initialNode = typeof node === "string" ? node : null;
 
-  // Rule: one organization per user. Only offer "create" when none exists.
-  const showCreateButton = canCreateOrganization(organizations.length);
-
-  return (
-    <main className="mx-auto w-full max-w-7xl space-y-8 p-6 md:p-8">
-      {/* Page header */}
-      <header className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <span className="inline-flex items-center rounded-full bg-dusk-blue/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-dusk-blue">
+  /* ---------- No organization yet: offer to create the one allowed ---------- */
+  if (organizations.length === 0) {
+    return (
+      <main className="mx-auto w-full max-w-3xl">
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 p-12 text-center">
+          <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-blue-700">
             Team Infrastructure
           </span>
 
-          <h1 className="mt-3 text-3xl font-bold tracking-tight text-ink-black">
-            API Management
+          <h1 className="mt-4 text-2xl font-bold tracking-tight text-slate-900">
+            Create your organization
           </h1>
 
-          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-gray-500">
-            Manage organizations, departments, projects, environments, API
-            keys, and AI provider credentials.
+          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-slate-500">
+            Each account has one organization. Once it exists you can add
+            departments, projects, environments, API keys, and AI provider
+            credentials.
           </p>
+
+          <div className="mt-6 flex justify-center">
+            <ApiManagementActions />
+          </div>
         </div>
+      </main>
+    );
+  }
 
-        {showCreateButton && <ApiManagementActions organizations={[]} />}
-      </header>
-
-      {/* KPI metrics + date range */}
-      <MetricsOverview organizations={organizations} />
-
-      {/* Organizations */}
-      <OrganizationTree organizations={organizations} />
+  // The dashboard layout wraps pages in `px-6 lg:px-8`, while the
+  // navbar uses `px-6`. `lg:-mx-2` lines the content up with the navbar edges.
+  return (
+    <main className="lg:-mx-2">
+      <InfrastructureWorkspace
+        organizations={organizations}
+        initialNode={initialNode}
+      />
     </main>
   );
 }
