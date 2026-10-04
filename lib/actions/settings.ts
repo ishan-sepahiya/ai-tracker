@@ -1,11 +1,15 @@
 "use server";
 
-import { randomUUID } from "crypto";
+import { createHash } from "crypto";
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { requireUser } from "@/lib/auth/server";
 import { computeForecast } from "@/lib/analysis/engine";
-import { sendAmberAlert, sendGreenAlert, sendRedAlert } from "@/lib/email";
+import {
+  sendAmberAlert,
+  sendGreenAlert,
+  sendRedAlert,
+} from "@/lib/email";
 
 function clamp(n: number, min: number, max: number) {
   if (!Number.isFinite(n)) return min;
@@ -21,80 +25,139 @@ const emailToggleCandidateColumns = [
   "notify_by_email",
 ] as const;
 
-function extractEmailToggleFromBudgetRow(row: Record<string, unknown>): boolean | null {
+function extractEmailToggleFromBudgetRow(
+  row: Record<string, unknown>,
+): boolean | null {
   for (const col of emailToggleCandidateColumns) {
     const v = row[col];
-    if (typeof v === "boolean") return v;
+
+    if (typeof v === "boolean") {
+      return v;
+    }
   }
+
   return null;
+}
+
+function hashApiToken(token: string): string {
+  return createHash("sha256")
+    .update(token, "utf8")
+    .digest("hex");
 }
 
 export async function getApiTokenLast8() {
   const { userId } = await requireUser();
+
   const { data, error } = await supabaseAdmin
     .from("profiles")
-    .select("api_token")
+    .select("api_token_last8,api_token")
     .eq("id", userId)
     .maybeSingle();
 
-  if (error) throw new Error(error.message);
-  const token = (data as { api_token?: string } | null)?.api_token ?? "";
-  const last8 = token.length ? token.slice(-8) : "";
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const row = data as {
+    api_token_last8?: string | null;
+    api_token?: string | null;
+  } | null;
+
+  const last8 =
+    row?.api_token_last8 ??
+    (row?.api_token ? row.api_token.slice(-8) : "");
+
   return { last8 };
 }
 
-export async function setApiToken(newToken: string) {
+export async function setApiToken(
+  newToken: string,
+) {
   const { userId } = await requireUser();
+
   const token = newToken.trim();
-  if (!token) throw new Error("Invalid token");
+
+  if (!token) {
+    throw new Error("Invalid token");
+  }
 
   const { error } = await supabaseAdmin
     .from("profiles")
-    .update({ api_token: token })
+    .update({
+      api_token_hash: hashApiToken(token),
+      api_token_last8: token.slice(-8),
+      api_token: null,
+    })
     .eq("id", userId);
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
-export async function updateFullName(fullName: string) {
+export async function updateFullName(
+  fullName: string,
+) {
   const { userId } = await requireUser();
+
   const name = fullName.trim();
   const value = name.length ? name : null;
 
   const { error } = await supabaseAdmin
     .from("profiles")
-    .update({ full_name: value })
+    .update({
+      full_name: value,
+    })
     .eq("id", userId);
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 export async function deleteAccountSoft() {
   const { userId } = await requireUser();
 
-  // Cancel subscriptions and deactivate providers. This is a "soft delete":
-  // we do not remove the auth user, but we anonymize usage + revoke SDK access.
-  const newToken = randomUUID();
+  // Cancel subscriptions and deactivate providers.
+  // This is a "soft delete":
+  // we do not remove the auth user, but revoke SDK access.
   const { error: subErr } = await supabaseAdmin
     .from("subscriptions")
-    .update({ status: "cancelled", updated_at: new Date().toISOString() })
+    .update({
+      status: "cancelled",
+      updated_at: new Date().toISOString(),
+    })
     .eq("owner_user_id", userId);
-  if (subErr) throw new Error(subErr.message);
+
+  if (subErr) {
+    throw new Error(subErr.message);
+  }
 
   const { error: provErr } = await supabaseAdmin
     .from("providers")
-    .update({ is_active: false, updated_at: new Date().toISOString() })
+    .update({
+      is_active: false,
+      updated_at: new Date().toISOString(),
+    })
     .eq("user_id", userId);
-  if (provErr) throw new Error(provErr.message);
+
+  if (provErr) {
+    throw new Error(provErr.message);
+  }
 
   const { error: profileErr } = await supabaseAdmin
     .from("profiles")
     .update({
       full_name: null,
-      api_token: newToken,
+      api_token_hash: null,
+      api_token_last8: null,
+      api_token: null,
     })
     .eq("id", userId);
-  if (profileErr) throw new Error(profileErr.message);
+
+  if (profileErr) {
+    throw new Error(profileErr.message);
+  }
 }
 
 export async function getNotificationPrefs() {
@@ -105,60 +168,104 @@ export async function getNotificationPrefs() {
     .select("*")
     .eq("user_id", userId);
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    throw new Error(error.message);
+  }
 
-  const rows = (data ?? []) as Array<Record<string, unknown>>;
+  const rows = (data ?? []) as Array<
+    Record<string, unknown>
+  >;
+
   const alertThresholdPct = (() => {
     const values = rows
-      .map((r) => (typeof r.alert_threshold_pct === "string" ? Number(r.alert_threshold_pct) : r.alert_threshold_pct))
-      .filter((v) => typeof v === "number" && Number.isFinite(v)) as number[];
-    if (!values.length) return 80;
-    // Use min so user is never less-protected than intended.
+      .map((r) =>
+        typeof r.alert_threshold_pct === "string"
+          ? Number(r.alert_threshold_pct)
+          : r.alert_threshold_pct,
+      )
+      .filter(
+        (v) =>
+          typeof v === "number" &&
+          Number.isFinite(v),
+      ) as number[];
+
+    if (!values.length) {
+      return 80;
+    }
+
     return Math.min(...values);
   })();
 
   let emailEnabled: boolean | null = null;
+
   for (const row of rows) {
-    emailEnabled = extractEmailToggleFromBudgetRow(row);
-    if (emailEnabled !== null) break;
+    emailEnabled =
+      extractEmailToggleFromBudgetRow(row);
+
+    if (emailEnabled !== null) {
+      break;
+    }
   }
 
   return {
     emailEnabled: emailEnabled ?? false,
-    alertThresholdPct: clamp(alertThresholdPct, 0, 100),
+    alertThresholdPct: clamp(
+      alertThresholdPct,
+      0,
+      100,
+    ),
   };
 }
 
-export async function setNotificationPrefs(input: {
-  emailEnabled: boolean;
-  alertThresholdPct: number;
-}) {
+export async function setNotificationPrefs(
+  input: {
+    emailEnabled: boolean;
+    alertThresholdPct: number;
+  },
+) {
   const { userId } = await requireUser();
 
-  const alertThresholdPct = clamp(Math.round(input.alertThresholdPct), 0, 100);
+  const alertThresholdPct = clamp(
+    Math.round(input.alertThresholdPct),
+    0,
+    100,
+  );
 
-  // Always update threshold.
-  const { error: thresholdErr } = await supabaseAdmin
-    .from("budgets")
-    .update({ alert_threshold_pct: alertThresholdPct })
-    .eq("user_id", userId);
-  if (thresholdErr) throw new Error(thresholdErr.message);
+  const { error: thresholdErr } =
+    await supabaseAdmin
+      .from("budgets")
+      .update({
+        alert_threshold_pct:
+          alertThresholdPct,
+      })
+      .eq("user_id", userId);
 
-  // Email toggle: try candidate columns.
+  if (thresholdErr) {
+    throw new Error(thresholdErr.message);
+  }
+
   for (const column of emailToggleCandidateColumns) {
     const { error } = await supabaseAdmin
       .from("budgets")
-      .update({ [column]: input.emailEnabled })
+      .update({
+        [column]: input.emailEnabled,
+      })
       .eq("user_id", userId);
 
-    if (!error) return;
+    if (!error) {
+      return;
+    }
 
-    const msg = error.message?.toLowerCase?.() ?? "";
-    if (msg.includes("column") && msg.includes("does not exist")) {
+    const msg =
+      error.message?.toLowerCase?.() ?? "";
+
+    if (
+      msg.includes("column") &&
+      msg.includes("does not exist")
+    ) {
       continue;
     }
 
-    // If it's not a missing-column error, fail loudly.
     throw new Error(error.message);
   }
 }
@@ -166,12 +273,16 @@ export async function setNotificationPrefs(input: {
 export async function sendTestAlertEmail() {
   const { userId } = await requireUser();
 
-  const [{ data: profile }, { data: budgets }] = await Promise.all([
+  const [
+    { data: profile },
+    { data: budgets },
+  ] = await Promise.all([
     supabaseAdmin
       .from("profiles")
       .select("email,full_name")
       .eq("id", userId)
       .maybeSingle(),
+
     supabaseAdmin
       .from("budgets")
       .select("alert_threshold_pct")
@@ -179,42 +290,95 @@ export async function sendTestAlertEmail() {
   ]);
 
   const email = profile?.email ?? null;
-  if (!email) throw new Error("Missing profile email");
 
-  const rows = (budgets ?? []) as Array<{ alert_threshold_pct: number | null }>;
+  if (!email) {
+    throw new Error("Missing profile email");
+  }
+
+  const rows = (budgets ?? []) as Array<{
+    alert_threshold_pct: number | null;
+  }>;
+
   const alertThresholdPct = (() => {
     const values = rows
-      .map((r) => (typeof r.alert_threshold_pct === "string" ? Number(r.alert_threshold_pct) : r.alert_threshold_pct))
-      .filter((v): v is number => typeof v === "number" && Number.isFinite(v));
-    return values.length ? Math.min(...values) : 80;
+      .map((r) =>
+        typeof r.alert_threshold_pct === "string"
+          ? Number(r.alert_threshold_pct)
+          : r.alert_threshold_pct,
+      )
+      .filter(
+        (v): v is number =>
+          typeof v === "number" &&
+          Number.isFinite(v),
+      );
+
+    return values.length
+      ? Math.min(...values)
+      : 80;
   })();
 
-  const forecast = await computeForecast(userId);
-  const pct = forecast.pct_of_budget;
-  const limit = forecast.monthly_limit_usd;
-  const spend = forecast.projected_total_usd;
+  const forecast =
+    await computeForecast(userId);
 
-  const user = { email, full_name: profile?.full_name ?? null };
+  const pct =
+    forecast.pct_of_budget;
 
-  // Choose alert level based on current forecast vs threshold.
+  const limit =
+    forecast.monthly_limit_usd;
+
+  const spend =
+    forecast.projected_total_usd;
+
+  const user = {
+    email,
+    full_name:
+      profile?.full_name ?? null,
+  };
+
   if (pct >= 100) {
-    await sendRedAlert(user, spend, limit);
-    return { sent: true, level: "red" as const };
+    await sendRedAlert(
+      user,
+      spend,
+      limit,
+    );
+
+    return {
+      sent: true,
+      level: "red" as const,
+    };
   }
 
   if (pct >= alertThresholdPct) {
-    await sendAmberAlert(user, spend, limit, pct);
-    return { sent: true, level: "amber" as const };
+    await sendAmberAlert(
+      user,
+      spend,
+      limit,
+      pct,
+    );
+
+    return {
+      sent: true,
+      level: "amber" as const,
+    };
   }
 
-  await sendGreenAlert(user, spend, limit);
-  return { sent: true, level: "green" as const };
+  await sendGreenAlert(
+    user,
+    spend,
+    limit,
+  );
+
+  return {
+    sent: true,
+    level: "green" as const,
+  };
 }
 
-export async function updateEmailPreferences(input: {
-  emailEnabled: boolean;
-  alertThresholdPct: number;
-}) {
+export async function updateEmailPreferences(
+  input: {
+    emailEnabled: boolean;
+    alertThresholdPct: number;
+  },
+) {
   return setNotificationPrefs(input);
 }
-

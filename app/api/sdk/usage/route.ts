@@ -22,38 +22,50 @@ type RequestIdentity = {
   sdkKeyId: string | null;
 };
 
-function jsonError(message: string, status: number) {
-  return NextResponse.json({ error: message }, { status });
+function jsonError(
+  message: string,
+  status: number,
+) {
+  return NextResponse.json(
+    { error: message },
+    { status },
+  );
 }
 
-/* =========================================================
-   Authentication
-========================================================= */
-
-function parseBearerToken(authHeader: string | null): string | null {
+function parseBearerToken(
+  authHeader: string | null,
+): string | null {
   if (!authHeader) {
     return null;
   }
 
-  const [scheme, token] = authHeader.split(" ");
+  const match =
+    authHeader.match(
+      /^Bearer\s+([^\s]+)$/i,
+    );
 
-  if (scheme !== "Bearer" || !token) {
-    return null;
-  }
-
-  return token.trim();
+  return match?.[1]?.trim() || null;
 }
 
-function hashApiKey(token: string): string {
-  return crypto.createHash("sha256").update(token).digest("hex");
+function hashApiKey(
+  token: string,
+): string {
+  return crypto
+    .createHash("sha256")
+    .update(token, "utf8")
+    .digest("hex");
 }
 
 async function authenticateTeamApiKey(
   token: string,
 ): Promise<RequestIdentity | null> {
-  const keyHash = hashApiKey(token);
+  const keyHash =
+    hashApiKey(token);
 
-  const { data: apiKey, error: apiKeyError } = await supabaseAdmin
+  const {
+    data: apiKey,
+    error: apiKeyError,
+  } = await supabaseAdmin
     .from("api_keys")
     .select(`
       id,
@@ -67,7 +79,9 @@ async function authenticateTeamApiKey(
     .maybeSingle();
 
   if (apiKeyError) {
-    throw new Error(apiKeyError.message);
+    throw new Error(
+      apiKeyError.message,
+    );
   }
 
   if (!apiKey) {
@@ -75,102 +89,212 @@ async function authenticateTeamApiKey(
   }
 
   if (apiKey.revoked) {
-    throw new Error("API key has been revoked");
+    throw new Error(
+      "API key has been revoked",
+    );
   }
 
   if (apiKey.expires_at) {
-    const expiresAt = new Date(apiKey.expires_at);
+    const expiresAt =
+      new Date(apiKey.expires_at);
 
     if (
-      Number.isFinite(expiresAt.getTime()) &&
+      Number.isFinite(
+        expiresAt.getTime(),
+      ) &&
       expiresAt <= new Date()
     ) {
-      throw new Error("API key has expired");
+      throw new Error(
+        "API key has expired",
+      );
     }
   }
 
-  if (!apiKey.project_id || !apiKey.environment_id) {
+  if (
+    !apiKey.project_id ||
+    !apiKey.environment_id
+  ) {
     throw new Error(
       "API key is not linked to a project and environment",
     );
   }
 
-  const { data: environment, error: environmentError } =
-    await supabaseAdmin
-      .from("environments")
-      .select(`
+  const {
+    data: environment,
+    error: environmentError,
+  } = await supabaseAdmin
+    .from("environments")
+    .select(`
+      id,
+      project_id,
+      projects (
         id,
-        project_id,
-        projects (
+        department_id,
+        departments (
           id,
-          department_id,
-          departments (
-            id,
-            organization_id
-          )
+          organization_id
         )
-      `)
-      .eq("id", apiKey.environment_id)
-      .maybeSingle();
+      )
+    `)
+    .eq(
+      "id",
+      apiKey.environment_id,
+    )
+    .maybeSingle();
 
   if (environmentError) {
-    throw new Error(environmentError.message);
+    throw new Error(
+      environmentError.message,
+    );
   }
 
   if (!environment) {
-    throw new Error("API key environment not found");
+    throw new Error(
+      "API key environment not found",
+    );
   }
 
-  const project = Array.isArray(environment.projects)
-    ? environment.projects[0]
-    : environment.projects;
+  const project =
+    Array.isArray(environment.projects)
+      ? environment.projects[0]
+      : environment.projects;
 
   if (!project) {
-    throw new Error("API key project not found");
+    throw new Error(
+      "API key project not found",
+    );
   }
 
-  if (project.id !== apiKey.project_id) {
+  if (
+    project.id !==
+    apiKey.project_id
+  ) {
     throw new Error(
       "API key project/environment relationship is invalid",
     );
   }
 
-  const department = Array.isArray(project.departments)
-    ? project.departments[0]
-    : project.departments;
+  const department =
+    Array.isArray(project.departments)
+      ? project.departments[0]
+      : project.departments;
 
   if (!department) {
-    throw new Error("API key department not found");
+    throw new Error(
+      "API key department not found",
+    );
   }
 
   return {
     userId: apiKey.user_id,
-    organizationId: department.organization_id,
-    projectId: apiKey.project_id,
-    environmentId: apiKey.environment_id,
-    sdkKeyId: apiKey.id,
+    organizationId:
+      department.organization_id,
+    projectId:
+      apiKey.project_id,
+    environmentId:
+      apiKey.environment_id,
+    sdkKeyId:
+      apiKey.id,
   };
+}
+
+async function migrateLegacyProfileToken(
+  profileId: string,
+  token: string,
+) {
+  const tokenHash =
+    hashApiKey(token);
+
+  const { error } =
+    await supabaseAdmin
+      .from("profiles")
+      .update({
+        api_token_hash:
+          tokenHash,
+        api_token_last8:
+          token.slice(-8),
+        api_token: null,
+      })
+      .eq("id", profileId);
+
+  if (error) {
+    console.error(
+      "Failed to migrate legacy SDK token to hashed storage:",
+      error,
+    );
+  }
 }
 
 async function authenticateLegacyToken(
   token: string,
 ): Promise<RequestIdentity | null> {
-  const { data: profile, error } = await supabaseAdmin
+  const tokenHash =
+    hashApiKey(token);
+
+  // Preferred path: hashed SDK token.
+  const {
+    data: hashedProfile,
+    error: hashedError,
+  } = await supabaseAdmin
     .from("profiles")
-    .select("id")
-    .eq("api_token", token)
+    .select(
+      "id,api_token_last8",
+    )
+    .eq(
+      "api_token_hash",
+      tokenHash,
+    )
     .maybeSingle();
 
-  if (error) {
-    throw new Error(error.message);
+  if (hashedError) {
+    throw new Error(
+      hashedError.message,
+    );
   }
 
-  if (!profile) {
+  if (hashedProfile) {
+    return {
+      userId: hashedProfile.id,
+      organizationId: null,
+      projectId: null,
+      environmentId: null,
+      sdkKeyId: null,
+    };
+  }
+
+  // Temporary compatibility path for any row
+  // that has not been migrated yet.
+  const {
+    data: legacyProfile,
+    error: legacyError,
+  } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .eq(
+      "api_token",
+      token,
+    )
+    .maybeSingle();
+
+  if (legacyError) {
+    throw new Error(
+      legacyError.message,
+    );
+  }
+
+  if (!legacyProfile) {
     return null;
   }
 
+  // Migrate automatically after successful authentication.
+  await migrateLegacyProfileToken(
+    legacyProfile.id,
+    token,
+  );
+
   return {
-    userId: profile.id,
+    userId:
+      legacyProfile.id,
     organizationId: null,
     projectId: null,
     environmentId: null,
@@ -181,27 +305,33 @@ async function authenticateLegacyToken(
 async function authenticateRequest(
   token: string,
 ): Promise<RequestIdentity> {
-  const teamIdentity = await authenticateTeamApiKey(token);
+  const teamIdentity =
+    await authenticateTeamApiKey(
+      token,
+    );
 
   if (teamIdentity) {
     return teamIdentity;
   }
 
-  const legacyIdentity = await authenticateLegacyToken(token);
+  const legacyIdentity =
+    await authenticateLegacyToken(
+      token,
+    );
 
   if (legacyIdentity) {
     return legacyIdentity;
   }
 
-  throw new Error("Invalid API key");
+  throw new Error(
+    "Invalid API key",
+  );
 }
 
-/* =========================================================
-   Idempotency helpers
-========================================================= */
-
 function getUsageDate(): string {
-  return new Date().toISOString().slice(0, 10);
+  return new Date()
+    .toISOString()
+    .slice(0, 10);
 }
 
 async function findExistingSdkUsage(
@@ -212,39 +342,74 @@ async function findExistingSdkUsage(
 ) {
   let query = supabaseAdmin
     .from("usage_records")
-    .select("id,total_tokens")
-    .eq("user_id", identity.userId)
-    .eq("provider_id", providerId)
-    .eq("date", usageDate)
-    .eq("source", "sdk")
-    .eq("request_id", requestId);
+    .select(
+      "id,total_tokens",
+    )
+    .eq(
+      "user_id",
+      identity.userId,
+    )
+    .eq(
+      "provider_id",
+      providerId,
+    )
+    .eq(
+      "date",
+      usageDate,
+    )
+    .eq(
+      "source",
+      "sdk",
+    )
+    .eq(
+      "request_id",
+      requestId,
+    );
 
   if (identity.sdkKeyId) {
-    query = query.eq("sdk_key_id", identity.sdkKeyId);
+    query = query.eq(
+      "sdk_key_id",
+      identity.sdkKeyId,
+    );
   } else {
-    query = query.is("sdk_key_id", null);
+    query = query.is(
+      "sdk_key_id",
+      null,
+    );
   }
 
-  const { data, error } = await query.maybeSingle();
+  const {
+    data,
+    error,
+  } = await query.maybeSingle();
 
   if (error) {
-    throw new Error(error.message);
+    throw new Error(
+      error.message,
+    );
   }
 
   return data;
 }
 
-async function markApiKeyUsed(sdkKeyId: string | null) {
+async function markApiKeyUsed(
+  sdkKeyId: string | null,
+) {
   if (!sdkKeyId) {
     return;
   }
 
-  const { error } = await supabaseAdmin
-    .from("api_keys")
-    .update({
-      last_used: new Date().toISOString(),
-    })
-    .eq("id", sdkKeyId);
+  const { error } =
+    await supabaseAdmin
+      .from("api_keys")
+      .update({
+        last_used:
+          new Date().toISOString(),
+      })
+      .eq(
+        "id",
+        sdkKeyId,
+      );
 
   if (error) {
     console.error(
@@ -254,14 +419,15 @@ async function markApiKeyUsed(sdkKeyId: string | null) {
   }
 }
 
-/* =========================================================
-   Main endpoint
-========================================================= */
-
-export async function POST(request: Request) {
-  const token = parseBearerToken(
-    request.headers.get("Authorization"),
-  );
+export async function POST(
+  request: Request,
+) {
+  const token =
+    parseBearerToken(
+      request.headers.get(
+        "Authorization",
+      ),
+    );
 
   if (!token) {
     return jsonError(
@@ -273,9 +439,13 @@ export async function POST(request: Request) {
   let body: SdkUsageBody;
 
   try {
-    body = (await request.json()) as SdkUsageBody;
+    body =
+      (await request.json()) as SdkUsageBody;
   } catch {
-    return jsonError("Invalid JSON body", 400);
+    return jsonError(
+      "Invalid JSON body",
+      400,
+    );
   }
 
   const {
@@ -287,19 +457,37 @@ export async function POST(request: Request) {
     endpoint,
     request_id,
     metadata,
-  } = body ?? ({} as SdkUsageBody);
+  } =
+    body ??
+    ({} as SdkUsageBody);
 
-  if (!provider_name || typeof provider_name !== "string") {
-    return jsonError("provider_name is required", 400);
-  }
-
-  if (!model || typeof model !== "string") {
-    return jsonError("model is required", 400);
+  if (
+    !provider_name ||
+    typeof provider_name !== "string"
+  ) {
+    return jsonError(
+      "provider_name is required",
+      400,
+    );
   }
 
   if (
-    !Number.isFinite(prompt_tokens) ||
-    !Number.isFinite(completion_tokens)
+    !model ||
+    typeof model !== "string"
+  ) {
+    return jsonError(
+      "model is required",
+      400,
+    );
+  }
+
+  if (
+    !Number.isFinite(
+      prompt_tokens,
+    ) ||
+    !Number.isFinite(
+      completion_tokens,
+    )
   ) {
     return jsonError(
       "prompt_tokens and completion_tokens are required numbers",
@@ -307,7 +495,11 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!Number.isFinite(total_tokens)) {
+  if (
+    !Number.isFinite(
+      total_tokens,
+    )
+  ) {
     return jsonError(
       "total_tokens is required number",
       400,
@@ -325,85 +517,144 @@ export async function POST(request: Request) {
     );
   }
 
-  let identity: RequestIdentity;
+  let identity:
+    RequestIdentity;
 
   try {
-    identity = await authenticateRequest(token);
+    identity =
+      await authenticateRequest(
+        token,
+      );
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Invalid API key";
+      error instanceof Error
+        ? error.message
+        : "Invalid API key";
 
-    return jsonError(message, 401);
+    return jsonError(
+      message,
+      401,
+    );
   }
 
   const {
     data: providerRow,
     error: providerError,
-  } = await supabaseAdmin
-    .from("providers")
-    .select(`
-      id,
-      provider_name
-    `)
-    .eq("user_id", identity.userId)
-    .eq("provider_name", provider_name)
-    .eq("is_active", true)
-    .maybeSingle();
+  } =
+    await supabaseAdmin
+      .from("providers")
+      .select(`
+        id,
+        provider_name
+      `)
+      .eq(
+        "user_id",
+        identity.userId,
+      )
+      .eq(
+        "provider_name",
+        provider_name,
+      )
+      .eq(
+        "is_active",
+        true,
+      )
+      .maybeSingle();
 
   if (providerError) {
-    return jsonError(providerError.message, 500);
+    return jsonError(
+      providerError.message,
+      500,
+    );
   }
 
   if (!providerRow) {
-    return jsonError("Provider not found", 404);
+    return jsonError(
+      "Provider not found",
+      404,
+    );
   }
 
-  let providerCredentialId: string | null = null;
+  let providerCredentialId:
+    string | null = null;
 
-  if (identity.projectId && identity.environmentId) {
+  if (
+    identity.projectId &&
+    identity.environmentId
+  ) {
     const {
       data: credentialRows,
       error: credentialError,
-    } = await supabaseAdmin
-      .from("provider_credentials")
-      .select("id")
-      .eq("project_id", identity.projectId)
-      .eq("environment_id", identity.environmentId)
-      .eq("provider_name", provider_name)
-      .eq("status", "active")
-      .order("created_at", { ascending: false })
-      .limit(1);
+    } =
+      await supabaseAdmin
+        .from(
+          "provider_credentials",
+        )
+        .select("id")
+        .eq(
+          "project_id",
+          identity.projectId,
+        )
+        .eq(
+          "environment_id",
+          identity.environmentId,
+        )
+        .eq(
+          "provider_name",
+          provider_name,
+        )
+        .eq(
+          "status",
+          "active",
+        )
+        .order(
+          "created_at",
+          {
+            ascending: false,
+          },
+        )
+        .limit(1);
 
     if (credentialError) {
-      return jsonError(credentialError.message, 500);
+      return jsonError(
+        credentialError.message,
+        500,
+      );
     }
 
-    providerCredentialId = credentialRows?.[0]?.id ?? null;
+    providerCredentialId =
+      credentialRows?.[0]?.id ??
+      null;
   }
 
-  const usageDate = getUsageDate();
-  const normalizedRequestId =
-    typeof request_id === "string" ? request_id.trim() : "";
+  const usageDate =
+    getUsageDate();
 
-  /* -------------------------------------------------------
-     1. Fast-path duplicate check
-  ------------------------------------------------------- */
+  const normalizedRequestId =
+    typeof request_id ===
+    "string"
+      ? request_id.trim()
+      : "";
 
   if (normalizedRequestId) {
     try {
-      const existingRow = await findExistingSdkUsage(
-        identity,
-        providerRow.id,
-        usageDate,
-        normalizedRequestId,
-      );
+      const existingRow =
+        await findExistingSdkUsage(
+          identity,
+          providerRow.id,
+          usageDate,
+          normalizedRequestId,
+        );
 
       if (existingRow) {
-        await markApiKeyUsed(identity.sdkKeyId);
+        await markApiKeyUsed(
+          identity.sdkKeyId,
+        );
 
         return NextResponse.json({
           success: true,
-          recorded_tokens: existingRow.total_tokens,
+          recorded_tokens:
+            existingRow.total_tokens,
           deduped: true,
         });
       }
@@ -413,85 +664,112 @@ export async function POST(request: Request) {
           ? error.message
           : "Failed to check existing usage record";
 
-      return jsonError(message, 500);
+      return jsonError(
+        message,
+        500,
+      );
     }
   }
 
   const raw_response = {
     ...(metadata ?? {}),
     model,
-    endpoint: endpoint ?? null,
+    endpoint:
+      endpoint ?? null,
     usage: {
-      input_tokens: prompt_tokens,
-      output_tokens: completion_tokens,
+      input_tokens:
+        prompt_tokens,
+      output_tokens:
+        completion_tokens,
     },
-    request_id: normalizedRequestId || null,
+    request_id:
+      normalizedRequestId ||
+      null,
   };
 
   const traceId =
-    typeof metadata?.trace_id === "string"
+    typeof metadata?.trace_id ===
+    "string"
       ? metadata.trace_id
       : null;
-
-  /* -------------------------------------------------------
-     2. Insert usage record
-  ------------------------------------------------------- */
 
   const {
     error: insertError,
     data: inserted,
-  } = await supabaseAdmin
-    .from("usage_records")
-    .insert({
-      user_id: identity.userId,
-      provider_id: providerRow.id,
+  } =
+    await supabaseAdmin
+      .from("usage_records")
+      .insert({
+        user_id:
+          identity.userId,
+        provider_id:
+          providerRow.id,
 
-      organization_id: identity.organizationId,
-      project_id: identity.projectId,
-      environment_id: identity.environmentId,
-      sdk_key_id: identity.sdkKeyId,
-      provider_credential_id: providerCredentialId,
+        organization_id:
+          identity.organizationId,
+        project_id:
+          identity.projectId,
+        environment_id:
+          identity.environmentId,
+        sdk_key_id:
+          identity.sdkKeyId,
+        provider_credential_id:
+          providerCredentialId,
 
-      date: usageDate,
-      total_tokens,
-      prompt_tokens,
-      completion_tokens,
-      total_cost_usd: null,
-      source: "sdk",
-      request_id: normalizedRequestId || null,
-      raw_response,
-      request_count: 1,
-      trace_id: traceId,
+        date:
+          usageDate,
+        total_tokens,
+        prompt_tokens,
+        completion_tokens,
+        total_cost_usd:
+          null,
+        source:
+          "sdk",
+        request_id:
+          normalizedRequestId ||
+          null,
+        raw_response,
+        request_count: 1,
+        trace_id:
+          traceId,
 
-      actor_id: identity.sdkKeyId ?? null,
-      actor_type: identity.sdkKeyId ? "api_key" : null,
-    })
-    .select("id,total_tokens")
-    .single();
-
-  /* -------------------------------------------------------
-     3. Database-enforced race-safe deduplication
-  ------------------------------------------------------- */
+        actor_id:
+          identity.sdkKeyId ??
+          null,
+        actor_type:
+          identity.sdkKeyId
+            ? "api_key"
+            : null,
+      })
+      .select(
+        "id,total_tokens",
+      )
+      .single();
 
   if (insertError) {
     if (
-      insertError.code === "23505" &&
+      insertError.code ===
+        "23505" &&
       normalizedRequestId
     ) {
       try {
-        const existingRow = await findExistingSdkUsage(
-          identity,
-          providerRow.id,
-          usageDate,
-          normalizedRequestId,
-        );
+        const existingRow =
+          await findExistingSdkUsage(
+            identity,
+            providerRow.id,
+            usageDate,
+            normalizedRequestId,
+          );
 
         if (existingRow) {
-          await markApiKeyUsed(identity.sdkKeyId);
+          await markApiKeyUsed(
+            identity.sdkKeyId,
+          );
 
           return NextResponse.json({
             success: true,
-            recorded_tokens: existingRow.total_tokens,
+            recorded_tokens:
+              existingRow.total_tokens,
             deduped: true,
           });
         }
@@ -503,23 +781,29 @@ export async function POST(request: Request) {
       }
     }
 
-    return jsonError(insertError.message, 500);
+    return jsonError(
+      insertError.message,
+      500,
+    );
   }
 
-  /* -------------------------------------------------------
-     4. Update API key last-used timestamp
-  ------------------------------------------------------- */
-
-  await markApiKeyUsed(identity.sdkKeyId);
+  await markApiKeyUsed(
+    identity.sdkKeyId,
+  );
 
   return NextResponse.json({
     success: true,
     recorded_tokens:
-      inserted?.total_tokens ?? total_tokens,
+      inserted?.total_tokens ??
+      total_tokens,
     deduped: false,
-    organization_id: identity.organizationId,
-    project_id: identity.projectId,
-    environment_id: identity.environmentId,
-    sdk_key_id: identity.sdkKeyId,
+    organization_id:
+      identity.organizationId,
+    project_id:
+      identity.projectId,
+    environment_id:
+      identity.environmentId,
+    sdk_key_id:
+      identity.sdkKeyId,
   });
 }
