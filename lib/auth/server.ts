@@ -59,13 +59,51 @@ export async function requireUser() {
   return { userId, email };
 }
 
-export async function ensureProfileRow(userId: string, email: string | null) {
-  const { error } = await supabaseAdmin.from("profiles").upsert({
-    id: userId,
-    email: email ?? null,
-    full_name: null,
-  });
 
-  if (error) throw new Error(error.message);
+export async function ensureProfileRow(
+  userId: string,
+  email: string | null,
+  fullName?: string | null,
+) {
+  const profile = {
+    id: userId,
+    ...(email ? { email } : {}),
+    ...(fullName?.trim() ? { full_name: fullName.trim() } : {}),
+  };
+
+  const { error } = await supabaseAdmin
+    .from("profiles")
+    .upsert(profile, { onConflict: "id" });
+
+  // The email may already belong to another profile.
+  // Retry without email rather than overwriting that profile.
+  if (error?.code === "23505" && email) {
+    const { error: retryError } = await supabaseAdmin
+      .from("profiles")
+      .upsert(
+        {
+          id: userId,
+          ...(fullName?.trim()
+            ? { full_name: fullName.trim() }
+            : {}),
+        },
+        { onConflict: "id" },
+      );
+
+    if (retryError) {
+      throw new Error(
+        `Failed to initialize profile: ${retryError.message}`,
+      );
+    }
+
+    return;
+  }
+
+  if (error) {
+    throw new Error(
+      `Failed to initialize profile: ${error.message}`,
+    );
+  }
 }
+
 

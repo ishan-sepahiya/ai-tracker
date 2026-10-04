@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-
+import { ensureProfileRow } from "@/lib/auth/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import {
   ORGANIZATION_LIMIT_MESSAGE,
@@ -132,32 +132,33 @@ export async function POST(request: Request) {
       );
     }
 
-// Ensure the authenticated user has a profile.
-const { error: profileError } = await supabaseAdmin
-  .from("profiles")
-  .upsert(
-    {
-      id: user.id,
-      email: user.email ?? null,
-      full_name: user.user_metadata?.full_name ?? null,
-    },
-    { onConflict: "id" },
-  );
+    // ---------------------------------------------------------
+    // Ensure the authenticated user has a profile.
+    // Uses the shared helper so existing profiles are not
+    // overwritten and email uniqueness conflicts are handled.
+    // ---------------------------------------------------------
+    try {
+      await ensureProfileRow(
+        user.id,
+        user.email ?? null,
+        typeof user.user_metadata?.full_name === "string"
+          ? user.user_metadata.full_name
+          : null,
+      );
+    } catch (error) {
+      console.error(
+        "❌ Failed to ensure user profile:",
+        error,
+      );
 
-if (profileError) {
-  console.error(
-    "Failed to ensure user profile:",
-    profileError,
-  );
+      return Response.json(
+        {
+          error: "Failed to initialize your user profile.",
+        },
+        { status: 500 },
+      );
+    }
 
-  return Response.json(
-    {
-      error: "Failed to initialize your user profile.",
-    },
-    { status: 500 },
-  );
-}
-     
     // ---------------------------------------------------------
     // Rule: one organization per user
     // ---------------------------------------------------------
@@ -215,8 +216,9 @@ if (profileError) {
       .single();
 
     if (error) {
-      // 23505 = unique violation. Happens if two create requests race
-      // and the database unique index on owner_user_id blocks the second.
+      // 23505 = unique violation.
+      // Happens if two create requests race and the database
+      // unique index on owner_user_id blocks the second.
       if (error.code === "23505") {
         return Response.json(
           {
