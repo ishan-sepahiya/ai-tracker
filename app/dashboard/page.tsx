@@ -5,6 +5,17 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@supabase/ssr";
+import {
+  Activity,
+  AlertTriangle,
+  ArrowRight,
+  CalendarDays,
+  CheckCircle2,
+  CircleDollarSign,
+  KeyRound,
+  Layers3,
+  WalletCards,
+} from "lucide-react";
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { ensureProfileRow } from "@/lib/auth/server";
@@ -12,11 +23,13 @@ import {
   aggregateByProvider,
   computeForecast,
   detectAnomalies,
-  getDailySpend,
 } from "@/lib/analysis/engine";
 
 import PieChart from "@/app/_components/charts/PieChart";
 import LineChart from "@/app/_components/charts/LineChart";
+import DashboardPeriodFilter from "@/app/dashboard/components/DashboardPeriodFilter";
+
+type Period = "7d" | "30d" | "90d";
 
 type UsageRow = {
   date: string;
@@ -35,6 +48,40 @@ type ProviderRow = {
   provider_name: string;
 };
 
+const PERIODS: Record<
+  Period,
+  {
+    days: number;
+    label: string;
+  }
+> = {
+  "7d": {
+    days: 7,
+    label: "Last 7 days",
+  },
+  "30d": {
+    days: 30,
+    label: "Last 30 days",
+  },
+  "90d": {
+    days: 90,
+    label: "Last 90 days",
+  },
+};
+
+const PIE_COLORS = [
+  "#0d1b2a",
+  "#415a77",
+  "#778da9",
+  "#5f7895",
+  "#9aabc0",
+  "#b9c4d1",
+];
+
+function formatDateISO(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
 function monthYearUTC(date: Date) {
   return `${date.getUTCFullYear()}-${String(
     date.getUTCMonth() + 1,
@@ -42,7 +89,9 @@ function monthYearUTC(date: Date) {
 }
 
 function monthLabel(monthYear: string) {
-  const [year, month] = monthYear.split("-").map(Number);
+  const [year, month] = monthYear
+    .split("-")
+    .map(Number);
 
   return new Date(
     Date.UTC(year, month - 1, 1),
@@ -60,79 +109,164 @@ function formatUsd(value: number) {
   })}`;
 }
 
-function formatUsdCompact(value: number) {
-  return `$${value.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
 function formatNumber(value: number) {
   return value.toLocaleString("en-US");
 }
 
 function formatPercent(value: number) {
-  return `${value.toFixed(value >= 100 ? 0 : 1)}%`;
+  return `${value.toFixed(
+    value >= 100 ? 0 : 1,
+  )}%`;
 }
 
-function formatDate(date: string | null | undefined) {
-  if (!date) return "—";
+function formatDate(
+  value: string | null | undefined,
+) {
+  if (!value) {
+    return "—";
+  }
 
-  return new Date(date).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return new Date(value).toLocaleDateString(
+    "en-US",
+    {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    },
+  );
 }
 
 function extractModel(rawResponse: unknown) {
-  if (!rawResponse || typeof rawResponse !== "object") {
+  if (
+    !rawResponse ||
+    typeof rawResponse !== "object"
+  ) {
     return "Unknown model";
   }
 
-  const obj = rawResponse as Record<string, unknown>;
+  const object =
+    rawResponse as Record<
+      string,
+      unknown
+    >;
 
-  if (typeof obj.model === "string" && obj.model.trim()) {
-    return obj.model;
+  if (
+    typeof object.model === "string" &&
+    object.model.trim()
+  ) {
+    return object.model;
   }
 
   if (
-    typeof obj.model_name === "string" &&
-    obj.model_name.trim()
+    typeof object.model_name === "string" &&
+    object.model_name.trim()
   ) {
-    return obj.model_name;
+    return object.model_name;
   }
 
   if (
-    typeof obj.modelName === "string" &&
-    obj.modelName.trim()
+    typeof object.modelName === "string" &&
+    object.modelName.trim()
   ) {
-    return obj.modelName;
+    return object.modelName;
   }
 
   return "Unknown model";
 }
 
-function Icon({
-  children,
-  className = "h-5 w-5",
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      {children}
-    </svg>
+function getDateBounds(
+  days: number,
+  now: Date,
+) {
+  const end = new Date(
+    Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() + 1,
+    ),
+  );
+
+  const start = new Date(end);
+
+  start.setUTCDate(
+    start.getUTCDate() - days,
+  );
+
+  return {
+    start: formatDateISO(start),
+    end: formatDateISO(end),
+  };
+}
+
+function buildDailySeries(
+  rows: UsageRow[],
+  days: number,
+  now: Date,
+) {
+  const { start } = getDateBounds(
+    days,
+    now,
+  );
+
+  const startDate = new Date(
+    `${start}T00:00:00.000Z`,
+  );
+
+  const buckets = new Map<
+    string,
+    {
+      cost: number;
+      tokens: number;
+    }
+  >();
+
+  for (
+    let index = 0;
+    index < days;
+    index++
+  ) {
+    const date = new Date(
+      startDate,
+    );
+
+    date.setUTCDate(
+      date.getUTCDate() + index,
+    );
+
+    buckets.set(
+      formatDateISO(date),
+      {
+        cost: 0,
+        tokens: 0,
+      },
+    );
+  }
+
+  for (const row of rows) {
+    const bucket = buckets.get(
+      row.date,
+    );
+
+    if (!bucket) {
+      continue;
+    }
+
+    bucket.cost += Number(
+      row.total_cost_usd ?? 0,
+    );
+
+    bucket.tokens += Number(
+      row.total_tokens ?? 0,
+    );
+  }
+
+  return Array.from(
+    buckets.entries(),
+  ).map(
+    ([date, values]) => ({
+      date,
+      ...values,
+    }),
   );
 }
 
@@ -141,29 +275,17 @@ function MetricCard({
   value,
   description,
   icon,
-  change,
-  changeLabel,
   tone = "default",
 }: {
   label: string;
   value: string;
   description: string;
   icon: ReactNode;
-  change?: number | null;
-  changeLabel?: string;
-  tone?: "default" | "positive" | "warning";
+  tone?:
+    | "default"
+    | "positive"
+    | "warning";
 }) {
-  const changeIsIncrease = (change ?? 0) > 0;
-
-  const changeClass =
-    change === null || change === undefined
-      ? ""
-      : changeIsIncrease
-        ? "bg-red-50 text-red-700 ring-red-100"
-        : change < 0
-          ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
-          : "bg-slate-100 text-slate-600 ring-slate-200";
-
   const iconClass =
     tone === "positive"
       ? "bg-emerald-50 text-emerald-700"
@@ -172,7 +294,7 @@ function MetricCard({
         : "bg-slate-100 text-slate-700";
 
   return (
-    <div className="group rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
       <div className="flex items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
@@ -191,31 +313,7 @@ function MetricCard({
         </div>
       </div>
 
-      <div className="mt-4 flex min-h-7 items-center gap-2">
-        {change !== null && change !== undefined ? (
-          <span
-            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${changeClass}`}
-          >
-            <span>
-              {changeIsIncrease
-                ? "↑"
-                : change < 0
-                  ? "↓"
-                  : "•"}
-            </span>
-
-            <span>{Math.abs(change).toFixed(1)}%</span>
-          </span>
-        ) : null}
-
-        {changeLabel ? (
-          <span className="text-xs text-slate-500">
-            {changeLabel}
-          </span>
-        ) : null}
-      </div>
-
-      <p className="mt-2 text-sm text-slate-500">
+      <p className="mt-4 text-sm leading-5 text-slate-500">
         {description}
       </p>
     </div>
@@ -268,10 +366,7 @@ function EmptyState({
   return (
     <div className="flex min-h-[180px] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50/70 px-6 text-center">
       <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-slate-400 shadow-sm ring-1 ring-slate-200">
-        <Icon className="h-5 w-5">
-          <path d="M12 6v6l4 2" />
-          <circle cx="12" cy="12" r="9" />
-        </Icon>
+        <Activity className="h-5 w-5" />
       </div>
 
       <p className="mt-3 text-sm font-semibold text-slate-800">
@@ -286,36 +381,51 @@ function EmptyState({
 }
 
 async function getAuthedUserId() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL;
+
   const supabaseAnonKey =
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Missing Supabase env");
+  if (
+    !supabaseUrl ||
+    !supabaseAnonKey
+  ) {
+    throw new Error(
+      "Missing Supabase env",
+    );
   }
 
-  const cookieStorePromise = cookies();
+  const cookieStorePromise =
+    cookies();
 
-  const supabase = createServerClient(
-    supabaseUrl,
-    supabaseAnonKey,
-    {
-      cookies: {
-        getAll: async () =>
-          (await cookieStorePromise)
-            .getAll()
-            .map((cookie) => ({
-              name: cookie.name,
-              value: cookie.value,
-            })),
-        setAll: async () => {},
+  const supabase =
+    createServerClient(
+      supabaseUrl,
+      supabaseAnonKey,
+      {
+        cookies: {
+          getAll: async () =>
+            (
+              await cookieStorePromise
+            )
+              .getAll()
+              .map(
+                (cookie) => ({
+                  name: cookie.name,
+                  value:
+                    cookie.value,
+                }),
+              ),
+          setAll: async () => {},
+        },
       },
-    },
-  );
+    );
 
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } =
+    await supabase.auth.getUser();
 
   if (!user) {
     redirect("/login");
@@ -336,85 +446,127 @@ async function getAuthedUserId() {
   return user.id;
 }
 
-export default async function DashboardPage() {
-  const userId = await getAuthedUserId();
+export default async function DashboardPage(
+  props: {
+    searchParams?: Promise<{
+      period?: string;
+    }>;
+  },
+) {
+  const userId =
+    await getAuthedUserId();
+
+  const searchParams =
+    await props.searchParams;
+
+  const requestedPeriod =
+    searchParams?.period;
+
+  const period: Period =
+    requestedPeriod === "7d" ||
+    requestedPeriod === "90d"
+      ? requestedPeriod
+      : "30d";
+
+  const periodConfig =
+    PERIODS[period];
 
   const now = new Date();
-  const currentMonth = monthYearUTC(now);
 
-  const previousMonthDate = new Date(now);
+  const currentMonth =
+    monthYearUTC(now);
 
-  previousMonthDate.setUTCMonth(
-    previousMonthDate.getUTCMonth() - 1,
-  );
+  const nextMonthDate =
+    new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth() + 1,
+        1,
+      ),
+    );
 
-  const previousMonth = monthYearUTC(
-    previousMonthDate,
-  );
+  const nextMonth =
+    monthYearUTC(
+      nextMonthDate,
+    );
 
-  const nextMonthDate = new Date(
-    Date.UTC(
-      now.getUTCFullYear(),
-      now.getUTCMonth() + 1,
-      1,
-    ),
-  );
-
-  const nextMonth = monthYearUTC(
-    nextMonthDate,
-  );
+  const bounds =
+    getDateBounds(
+      periodConfig.days,
+      now,
+    );
 
   const [
-    currentBreakdown,
-    previousBreakdown,
-    dailySpend,
-    forecast,
-    anomalies,
-    budgetRows,
     usageResult,
     providerResult,
+    budgetResult,
+    currentMonthBreakdown,
+    forecast,
+    anomalies,
   ] = await Promise.all([
-    aggregateByProvider(
-      userId,
-      currentMonth,
-    ),
-
-    aggregateByProvider(
-      userId,
-      previousMonth,
-    ),
-
-    getDailySpend(userId, 30),
-
-    computeForecast(userId),
-
-    detectAnomalies(userId),
-
-    supabaseAdmin
-      .from("budgets")
-      .select("monthly_limit_usd")
-      .eq("user_id", userId),
-
     supabaseAdmin
       .from("usage_records")
       .select(
         "date,fetched_at,provider_id,total_cost_usd,total_tokens,request_count,raw_response,request_id,stop_reason",
       )
-      .eq("user_id", userId)
-      .gte("date", `${currentMonth}-01`)
-      .lt("date", `${nextMonth}-01`)
-      .order("date", {
-        ascending: false,
-      })
-      .order("fetched_at", {
-        ascending: false,
-      })
-      .limit(12),
+      .eq(
+        "user_id",
+        userId,
+      )
+      .gte(
+        "date",
+        bounds.start,
+      )
+      .lt(
+        "date",
+        bounds.end,
+      )
+      .order(
+        "date",
+        {
+          ascending: false,
+        },
+      )
+      .order(
+        "fetched_at",
+        {
+          ascending: false,
+        },
+      )
+      .limit(5000),
 
     supabaseAdmin
       .from("providers")
-      .select("id,provider_name")
-      .eq("user_id", userId),
+      .select(
+        "id,provider_name",
+      )
+      .eq(
+        "user_id",
+        userId,
+      ),
+
+    supabaseAdmin
+      .from("budgets")
+      .select(
+        "monthly_limit_usd",
+      )
+      .eq(
+        "user_id",
+        userId,
+      ),
+
+    aggregateByProvider(
+      userId,
+      currentMonth,
+    ),
+
+    computeForecast(
+      userId,
+    ),
+
+    detectAnomalies(
+      userId,
+    ),
   ]);
 
   if (usageResult.error) {
@@ -429,181 +581,275 @@ export default async function DashboardPage() {
     );
   }
 
+  if (budgetResult.error) {
+    throw new Error(
+      budgetResult.error.message,
+    );
+  }
+
   const usageRows =
-    (usageResult.data ?? []) as UsageRow[];
+    (usageResult.data ??
+      []) as UsageRow[];
 
   const providerRows =
-    (providerResult.data ?? []) as ProviderRow[];
+    (providerResult.data ??
+      []) as ProviderRow[];
 
-  const providerNameById = new Map(
-    providerRows.map((row) => [
-      row.id,
-      row.provider_name,
-    ]),
-  );
-
-  const monthSpend =
-    currentBreakdown.reduce(
-      (sum, row) =>
-        sum +
-        Number(row.total_cost_usd ?? 0),
-      0,
+  const providerNameById =
+    new Map(
+      providerRows.map(
+        (provider) => [
+          provider.id,
+          provider.provider_name,
+        ],
+      ),
     );
 
-  const previousMonthSpend =
-    previousBreakdown.reduce(
-      (sum, row) =>
-        sum +
-        Number(row.total_cost_usd ?? 0),
-      0,
-    );
+  /*
+   * PERIOD METRICS
+   */
 
-  const monthChange =
-    previousMonthSpend > 0
-      ? ((monthSpend -
-          previousMonthSpend) /
-          previousMonthSpend) *
-        100
-      : null;
-
-  const monthTokens =
-    currentBreakdown.reduce(
-      (sum, row) =>
-        sum +
-        Number(row.total_tokens ?? 0),
-      0,
-    );
-
-  const monthRequests =
-    currentBreakdown.reduce(
-      (sum, row) =>
-        sum +
-        Number(row.request_count ?? 0),
-      0,
-    );
-
-  const monthlyLimit =
-    (budgetRows.data ?? []).reduce(
+  const periodSpend =
+    usageRows.reduce(
       (sum, row) =>
         sum +
         Number(
-          row.monthly_limit_usd ?? 0,
+          row.total_cost_usd ??
+            0,
+        ),
+      0,
+    );
+
+  const periodTokens =
+    usageRows.reduce(
+      (sum, row) =>
+        sum +
+        Number(
+          row.total_tokens ??
+            0,
+        ),
+      0,
+    );
+
+  const periodRequests =
+    usageRows.reduce(
+      (sum, row) =>
+        sum +
+        Number(
+          row.request_count ??
+            0,
+        ),
+      0,
+    );
+
+  const avgDailySpend =
+    periodConfig.days > 0
+      ? periodSpend /
+        periodConfig.days
+      : 0;
+
+  /*
+   * CURRENT MONTH BUDGET
+   */
+
+  const monthlyLimit =
+    (
+      budgetResult.data ??
+      []
+    ).reduce(
+      (sum, row) =>
+        sum +
+        Number(
+          row.monthly_limit_usd ??
+            0,
+        ),
+      0,
+    );
+
+  const monthSpend =
+    currentMonthBreakdown.reduce(
+      (sum, row) =>
+        sum +
+        Number(
+          row.total_cost_usd ??
+            0,
         ),
       0,
     );
 
   const budgetUsedPct =
     monthlyLimit > 0
-      ? (monthSpend / monthlyLimit) * 100
+      ? (monthSpend /
+          monthlyLimit) *
+        100
       : 0;
 
-  const budgetRemaining = Math.max(
-    0,
-    monthlyLimit - monthSpend,
-  );
-
-  const todaySpend =
-    dailySpend[dailySpend.length - 1]
-      ?.total_cost_usd ?? 0;
-
-  const lastSevenDaysSpend =
-    dailySpend
-      .slice(-7)
-      .reduce(
-        (sum, row) =>
-          sum +
-          Number(
-            row.total_cost_usd ?? 0,
-          ),
-        0,
-      );
-
-  const lastSevenDaysTokens =
-    dailySpend
-      .slice(-7)
-      .reduce(
-        (sum, row) =>
-          sum +
-          Number(
-            row.total_tokens ?? 0,
-          ),
-        0,
-      );
-
-  const trendPoints = dailySpend.map(
-    (row) => ({
-      x: row.date.slice(5),
-      y: Number(
-        row.total_cost_usd ?? 0,
-      ),
-    }),
-  );
-
-  const providerPie =
-    currentBreakdown
-      .filter(
-        (row) =>
-          Number(
-            row.total_cost_usd ?? 0,
-          ) > 0,
-      )
-      .slice(0, 6)
-      .map((row, index) => ({
-        label: row.provider_name,
-        value: Number(
-          row.total_cost_usd ?? 0,
-        ),
-        color: [
-          "#0d1b2a",
-          "#415a77",
-          "#778da9",
-          "#5f7895",
-          "#9aabc0",
-          "#b9c4d1",
-        ][index],
-      }));
-
-  const maxProviderCost =
+  const budgetRemaining =
     Math.max(
-      ...currentBreakdown.map((row) =>
-        Number(
-          row.total_cost_usd ?? 0,
-        ),
-      ),
       0,
+      monthlyLimit -
+        monthSpend,
     );
 
-  const topModelsMap = new Map<
-    string,
-    {
-      cost: number;
-      tokens: number;
-      requests: number;
-    }
-  >();
+  const budgetTone =
+    monthlyLimit <= 0
+      ? "default"
+      : budgetUsedPct >= 90
+        ? "warning"
+        : "positive";
+
+  /*
+   * DAILY TREND
+   */
+
+  const dailySeries =
+    buildDailySeries(
+      usageRows,
+      periodConfig.days,
+      now,
+    );
+
+  const trendPoints =
+    dailySeries.map(
+      (row) => ({
+        x: row.date.slice(5),
+        y: row.cost,
+      }),
+    );
+
+  /*
+   * PROVIDER BREAKDOWN
+   */
+
+  const providerMap =
+    new Map<
+      string,
+      {
+        cost: number;
+        tokens: number;
+        requests: number;
+      }
+    >();
 
   for (const row of usageRows) {
-    const model = extractModel(
-      row.raw_response,
-    );
-
     const current =
-      topModelsMap.get(model) ?? {
+      providerMap.get(
+        row.provider_id,
+      ) ?? {
         cost: 0,
         tokens: 0,
         requests: 0,
       };
 
     current.cost += Number(
-      row.total_cost_usd ?? 0,
+      row.total_cost_usd ??
+        0,
     );
 
     current.tokens += Number(
-      row.total_tokens ?? 0,
+      row.total_tokens ??
+        0,
     );
 
     current.requests += Number(
-      row.request_count ?? 0,
+      row.request_count ??
+        0,
+    );
+
+    providerMap.set(
+      row.provider_id,
+      current,
+    );
+  }
+
+  const providerBreakdown =
+    Array.from(
+      providerMap.entries(),
+    )
+      .map(
+        ([
+          providerId,
+          metrics,
+        ]) => ({
+          providerId,
+          provider:
+            providerNameById.get(
+              providerId,
+            ) ??
+            "Unknown provider",
+          ...metrics,
+        }),
+      )
+      .sort(
+        (a, b) =>
+          b.cost - a.cost,
+      );
+
+  const providerPie =
+    providerBreakdown
+      .filter(
+        (provider) =>
+          provider.cost > 0,
+      )
+      .slice(0, 6)
+      .map(
+        (
+          provider,
+          index,
+        ) => ({
+          label:
+            provider.provider,
+          value:
+            provider.cost,
+          color:
+            PIE_COLORS[
+              index
+            ],
+        }),
+      );
+
+  /*
+   * TOP MODELS
+   */
+
+  const topModelsMap =
+    new Map<
+      string,
+      {
+        cost: number;
+        tokens: number;
+        requests: number;
+      }
+    >();
+
+  for (const row of usageRows) {
+    const model =
+      extractModel(
+        row.raw_response,
+      );
+
+    const current =
+      topModelsMap.get(
+        model,
+      ) ?? {
+        cost: 0,
+        tokens: 0,
+        requests: 0,
+      };
+
+    current.cost += Number(
+      row.total_cost_usd ??
+        0,
+    );
+
+    current.tokens += Number(
+      row.total_tokens ??
+        0,
+    );
+
+    current.requests += Number(
+      row.request_count ??
+        0,
     );
 
     topModelsMap.set(
@@ -612,48 +858,48 @@ export default async function DashboardPage() {
     );
   }
 
-  const topModels = Array.from(
-    topModelsMap.entries(),
-  )
-    .map(([model, metrics]) => ({
-      model,
-      ...metrics,
-    }))
-    .sort(
-      (a, b) =>
-        b.cost - a.cost,
+  const topModels =
+    Array.from(
+      topModelsMap.entries(),
     )
-    .slice(0, 5);
+      .map(
+        ([model, metrics]) => ({
+          model,
+          ...metrics,
+        }),
+      )
+      .sort(
+        (a, b) =>
+          b.cost - a.cost,
+      )
+      .slice(0, 5);
 
-  const recentRows = usageRows
-    .map((row) => ({
-      ...row,
-      provider:
-        providerNameById.get(
-          row.provider_id,
-        ) ?? "Unknown provider",
-      model: extractModel(
-        row.raw_response,
-      ),
-    }))
-    .slice(0, 8);
+  /*
+   * RECENT USAGE
+   */
 
-  const budgetTone =
-    monthlyLimit <= 0
-      ? "default"
-      : budgetUsedPct >= 90
-        ? "danger"
-        : budgetUsedPct >= 75
-          ? "warning"
-          : "healthy";
+  const recentRows =
+    usageRows
+      .slice(0, 8)
+      .map((row) => ({
+        ...row,
+        provider:
+          providerNameById.get(
+            row.provider_id,
+          ) ??
+          "Unknown provider",
+        model:
+          extractModel(
+            row.raw_response,
+          ),
+      }));
 
-  const budgetBarWidth =
-    monthlyLimit > 0
-      ? Math.min(100, budgetUsedPct)
-      : 0;
+  const periodLabel =
+    periodConfig.label;
 
   return (
     <div className="space-y-8">
+
       {/* HEADER */}
 
       <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
@@ -661,6 +907,7 @@ export default async function DashboardPage() {
           <div className="absolute inset-y-0 right-0 hidden w-1/3 bg-gradient-to-l from-slate-100/80 to-transparent lg:block" />
 
           <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+
             <div>
               <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -672,94 +919,90 @@ export default async function DashboardPage() {
               </h1>
 
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 sm:text-base">
-                A clean view of spend, usage, budget health and
-                recent AI activity across your connected providers.
+                Monitor AI spend, usage, providers and budget
+                health from one place.
               </p>
             </div>
 
-            <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-400">
-                  Current period
-                </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
 
-                <p className="mt-1 text-sm font-semibold text-slate-800">
-                  {monthLabel(
-                    currentMonth,
-                  )}
-                </p>
-              </div>
+              <DashboardPeriodFilter
+                value={period}
+              />
 
               <Link
                 href="/dashboard/stats"
                 className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
               >
                 Open analytics
-
-                <Icon className="h-4 w-4">
-                  <path d="M5 12h14" />
-                  <path d="m13 6 6 6-6 6" />
-                </Icon>
+                <ArrowRight className="h-4 w-4" />
               </Link>
+
             </div>
+          </div>
+
+          <div className="relative mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-100 pt-4 text-xs text-slate-500">
+
+            <span className="inline-flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-slate-400" />
+              {periodLabel}
+            </span>
+
+            <span className="h-1 w-1 rounded-full bg-slate-300" />
+
+            <span>
+              {bounds.start}
+              {" → "}
+              {formatDateISO(
+                new Date(
+                  `${bounds.end}T00:00:00.000Z`,
+                ),
+              )}
+            </span>
+
           </div>
         </div>
       </section>
 
-      {/* KPI GRID */}
+      {/* KPI */}
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+
         <MetricCard
-          label="Month spend"
-          value={formatUsd(monthSpend)}
-          description="Total cost recorded in the current month."
-          change={monthChange}
-          changeLabel={
-            monthChange === null
-              ? "No previous-month baseline"
-              : "vs previous month"
-          }
+          label="Period spend"
+          value={formatUsd(
+            periodSpend,
+          )}
+          description={`Average ${formatUsd(avgDailySpend)} per day across ${periodConfig.days} days.`}
           icon={
-            <Icon>
-              <path d="M12 3v18" />
-              <path d="M16.5 7.5A4.5 4.5 0 0 0 12 5c-2.5 0-4 1.4-4 3.2 0 2.2 2.1 3.1 4.6 3.8 2.5.7 4.4 1.6 4.4 3.8 0 2-1.8 3.4-4.5 3.4a5.5 5.5 0 0 1-5-3" />
-            </Icon>
+            <CircleDollarSign className="h-5 w-5" />
           }
         />
 
         <MetricCard
-          label="Today's spend"
-          value={formatUsd(todaySpend)}
-          description={`${formatUsd(lastSevenDaysSpend)} spent across the last 7 days.`}
+          label="Requests"
+          value={formatNumber(
+            periodRequests,
+          )}
+          description={`Recorded API requests in the ${periodLabel.toLowerCase()}.`}
           icon={
-            <Icon>
-              <path d="M4 19V5" />
-              <path d="M4 19h16" />
-              <path d="m7 15 3-4 3 2 4-6" />
-            </Icon>
+            <Activity className="h-5 w-5" />
           }
           tone={
-            todaySpend > 0
+            periodRequests > 0
               ? "positive"
               : "default"
           }
         />
 
         <MetricCard
-          label="Requests"
-          value={formatNumber(monthRequests)}
-          description={`${formatNumber(monthTokens)} total tokens in the current month.`}
+          label="Tokens"
+          value={formatNumber(
+            periodTokens,
+          )}
+          description="Input and output token volume in the selected range."
           icon={
-            <Icon>
-              <rect
-                x="4"
-                y="4"
-                width="16"
-                height="16"
-                rx="3"
-              />
-              <path d="m8 12 2.5 2.5L16 9" />
-            </Icon>
+            <Layers3 className="h-5 w-5" />
           }
         />
 
@@ -774,58 +1017,43 @@ export default async function DashboardPage() {
           }
           description={
             monthlyLimit > 0
-              ? `${formatPercent(budgetUsedPct)} of the monthly budget is used.`
+              ? `${formatPercent(budgetUsedPct)} of the current monthly budget is used.`
               : "Set a monthly budget to enable budget tracking."
           }
           icon={
-            <Icon>
-              <rect
-                x="3"
-                y="6"
-                width="18"
-                height="13"
-                rx="2.5"
-              />
-              <path d="M7 6V4.8A1.8 1.8 0 0 1 8.8 3h6.4A1.8 1.8 0 0 1 17 4.8V6" />
-              <path d="M3 11h18" />
-            </Icon>
+            <WalletCards className="h-5 w-5" />
           }
           tone={
-            budgetTone === "healthy"
-              ? "positive"
-              : budgetTone ===
-                    "warning" ||
-                budgetTone ===
-                    "danger"
-                ? "warning"
-                : "default"
+            budgetTone
           }
         />
+
       </section>
 
       {/* TREND + BUDGET */}
 
       <section className="grid gap-6 xl:grid-cols-3">
+
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm xl:col-span-2">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <SectionHeader
-              eyebrow="Spending trend"
-              title="30-day spend"
-              description="Daily AI spend with the current day included."
-            />
 
-            <div className="rounded-2xl bg-slate-50 px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-                7-day spend
-              </p>
+          <SectionHeader
+            eyebrow="Spending trend"
+            title={`${periodLabel} spend`}
+            description="Daily spend for the selected range."
+            action={
+              <div className="rounded-2xl bg-slate-50 px-4 py-3 text-right">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                  Period total
+                </p>
 
-              <p className="mt-1 text-base font-semibold text-slate-900">
-                {formatUsd(
-                  lastSevenDaysSpend,
-                )}
-              </p>
-            </div>
-          </div>
+                <p className="mt-1 text-base font-semibold text-slate-900">
+                  {formatUsd(
+                    periodSpend,
+                  )}
+                </p>
+              </div>
+            }
+          />
 
           <div className="mt-6">
             {trendPoints.length ? (
@@ -833,29 +1061,36 @@ export default async function DashboardPage() {
                 points={trendPoints}
                 height={300}
                 stroke="#415a77"
+                valueFormat="usd"
               />
             ) : (
               <EmptyState
-                title="No spend data yet"
-                description="Once usage records are available, your daily spend trend will appear here."
+                title="No spend data"
+                description="The selected period does not contain any recorded usage."
               />
             )}
           </div>
+
         </div>
 
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
           <SectionHeader
             eyebrow="Budget"
             title="Budget health"
-            description="Current usage against your monthly limit."
+            description="Budget is always measured against the current month."
           />
 
           <div className="mt-6 rounded-3xl bg-slate-50 p-5">
+
             <div className="flex items-end justify-between gap-4">
+
               <div>
                 <p className="text-xs font-medium text-slate-500">
                   {monthlyLimit > 0
-                    ? "Monthly limit"
+                    ? monthLabel(
+                        currentMonth,
+                      )
                     : "Budget status"}
                 </p>
 
@@ -870,34 +1105,30 @@ export default async function DashboardPage() {
 
               <div
                 className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                  budgetTone ===
-                  "danger"
-                    ? "bg-red-100 text-red-700"
-                    : budgetTone ===
-                        "warning"
-                      ? "bg-amber-100 text-amber-700"
-                      : budgetTone ===
-                          "healthy"
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-slate-200 text-slate-600"
+                  budgetTone === "warning"
+                    ? "bg-amber-100 text-amber-700"
+                    : budgetTone === "positive"
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-slate-200 text-slate-600"
                 }`}
               >
                 {budgetTone ===
-                "danger"
-                  ? "High usage"
+                "warning"
+                  ? "Watch closely"
                   : budgetTone ===
-                      "warning"
-                    ? "Watch closely"
-                    : budgetTone ===
-                        "healthy"
-                      ? "Healthy"
-                      : "Not configured"}
+                      "positive"
+                    ? "Healthy"
+                    : "Not configured"}
               </div>
+
             </div>
 
             <div className="mt-6">
+
               <div className="flex items-center justify-between text-xs font-medium text-slate-500">
-                <span>Used</span>
+                <span>
+                  Used this month
+                </span>
 
                 <span>
                   {monthlyLimit > 0
@@ -910,23 +1141,25 @@ export default async function DashboardPage() {
 
               <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-200">
                 <div
-                  className={`h-full rounded-full transition-[width] ${
+                  className={`h-full rounded-full ${
                     budgetTone ===
-                    "danger"
-                      ? "bg-red-500"
-                      : budgetTone ===
-                          "warning"
-                        ? "bg-amber-500"
-                        : "bg-slate-700"
+                    "warning"
+                      ? "bg-amber-500"
+                      : "bg-slate-700"
                   }`}
                   style={{
-                    width: `${budgetBarWidth}%`,
+                    width: `${Math.min(
+                      100,
+                      budgetUsedPct,
+                    )}%`,
                   }}
                 />
               </div>
+
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-3">
+
               <div className="rounded-2xl border border-slate-200 bg-white p-3">
                 <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">
                   Current
@@ -941,99 +1174,103 @@ export default async function DashboardPage() {
 
               <div className="rounded-2xl border border-slate-200 bg-white p-3">
                 <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">
-                  Forecast
+                  Remaining
                 </p>
 
                 <p className="mt-1 text-sm font-semibold text-slate-900">
-                  {formatUsd(
-                    forecast.projected_total_usd,
-                  )}
+                  {monthlyLimit > 0
+                    ? formatUsd(
+                        budgetRemaining,
+                      )
+                    : "—"}
                 </p>
               </div>
+
             </div>
+
           </div>
         </div>
+
       </section>
 
       {/* PROVIDERS + FORECAST */}
 
       <section className="grid gap-6 xl:grid-cols-3">
+
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm xl:col-span-2">
+
           <SectionHeader
             eyebrow="Providers"
             title="Spend by provider"
-            description="See where the current month's spend is concentrated."
+            description={`Provider distribution for the ${periodLabel.toLowerCase()}.`}
             action={
               <Link
                 href="/dashboard/providers"
                 className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-700 hover:text-slate-950"
               >
                 Manage providers
-
-                <Icon className="h-4 w-4">
-                  <path d="M5 12h14" />
-                  <path d="m13 6 6 6-6 6" />
-                </Icon>
+                <ArrowRight className="h-4 w-4" />
               </Link>
             }
           />
 
-          <div className="mt-6 grid gap-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:items-center">
+          <div className="mt-6 grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-center">
+
             <div className="flex justify-center">
               {providerPie.length ? (
                 <PieChart
                   data={providerPie}
-                  size={220}
+                  size={210}
                 />
               ) : (
                 <EmptyState
-                  title="No provider data"
-                  description="Provider cost distribution will appear after usage is recorded."
+                  title="No provider usage"
+                  description="Provider distribution will appear after your first recorded request."
                 />
               )}
             </div>
 
             <div className="space-y-4">
-              {currentBreakdown.length ? (
-                currentBreakdown
+
+              {providerBreakdown.length ? (
+                providerBreakdown
                   .slice(0, 5)
                   .map(
                     (
                       provider,
                     ) => {
-                      const cost =
-                        Number(
-                          provider.total_cost_usd ??
-                            0,
-                        );
-
                       const share =
-                        monthSpend >
+                        periodSpend >
                         0
-                          ? (cost /
-                              monthSpend) *
+                          ? (provider.cost /
+                              periodSpend) *
                             100
                           : 0;
 
-                      const relativeToTop =
-                        maxProviderCost >
-                        0
-                          ? (cost /
-                              maxProviderCost) *
+                      const topCost =
+                        providerBreakdown[0]
+                          ?.cost ??
+                        0;
+
+                      const relative =
+                        topCost > 0
+                          ? (provider.cost /
+                              topCost) *
                             100
                           : 0;
 
                       return (
                         <div
                           key={
-                            provider.provider_name
+                            provider.providerId
                           }
                         >
                           <div className="flex items-center justify-between gap-4">
+
                             <div className="min-w-0">
                               <p className="truncate text-sm font-semibold text-slate-800">
                                 {
-                                  provider.provider_name
+                                  provider.provider
                                 }
                               </p>
 
@@ -1041,22 +1278,23 @@ export default async function DashboardPage() {
                                 {formatPercent(
                                   share,
                                 )}{" "}
-                                of spend
+                                of period spend
                               </p>
                             </div>
 
                             <p className="shrink-0 text-sm font-semibold text-slate-950">
                               {formatUsd(
-                                cost,
+                                provider.cost,
                               )}
                             </p>
+
                           </div>
 
                           <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
                             <div
                               className="h-full rounded-full bg-slate-700"
                               style={{
-                                width: `${relativeToTop}%`,
+                                width: `${relative}%`,
                               }}
                             />
                           </div>
@@ -1066,22 +1304,25 @@ export default async function DashboardPage() {
                   )
               ) : (
                 <EmptyState
-                  title="No provider usage"
-                  description="Connect a provider and record your first request to see the breakdown."
+                  title="No provider data"
+                  description="Connect a provider and record usage to populate this section."
                 />
               )}
+
             </div>
           </div>
         </div>
 
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
           <SectionHeader
             eyebrow="Forecast"
             title="Month-end projection"
-            description="Current trajectory based on recent usage."
+            description="Forecast remains based on the current month's trajectory."
           />
 
           <div className="mt-6 rounded-3xl bg-slate-950 p-5 text-white">
+
             <p className="text-xs font-medium text-slate-400">
               Projected spend
             </p>
@@ -1098,7 +1339,9 @@ export default async function DashboardPage() {
               </span>
 
               <span className="font-semibold text-white">
-                {forecast.days_remaining}
+                {
+                  forecast.days_remaining
+                }
               </span>
             </div>
 
@@ -1125,15 +1368,19 @@ export default async function DashboardPage() {
           </div>
 
           <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+
             <div className="flex items-start gap-3">
+
               <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-slate-700 shadow-sm ring-1 ring-slate-200">
-                <Icon className="h-4 w-4">
-                  <path d="M12 3v18" />
-                  <path d="M17 8.5A4.8 4.8 0 0 0 12 6c-2.5 0-4 1.2-4 3 0 2 1.8 2.7 4 3.3s4 1.3 4 3.5c0 1.8-1.6 3.2-4 3.2a5.4 5.4 0 0 1-4.8-2.6" />
-                </Icon>
+                {forecast.will_exceed ? (
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                )}
               </div>
 
               <div>
+
                 <p className="text-sm font-semibold text-slate-800">
                   {forecast.will_exceed
                     ? "Forecast is above budget"
@@ -1142,30 +1389,39 @@ export default async function DashboardPage() {
 
                 <p className="mt-1 text-xs leading-5 text-slate-500">
                   {forecast.will_exceed
-                    ? "Your current trajectory suggests the monthly limit may be exceeded."
-                    : "Current usage does not indicate a projected budget overrun."}
+                    ? "Current spending trajectory suggests a possible monthly overrun."
+                    : "Current spending trajectory is not projecting a monthly budget overrun."}
                 </p>
+
               </div>
+
             </div>
+
           </div>
         </div>
+
       </section>
 
       {/* MODELS + SNAPSHOT */}
 
       <section className="grid gap-6 xl:grid-cols-3">
+
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm xl:col-span-2">
+
           <SectionHeader
             eyebrow="Models"
             title="Top models by spend"
-            description="Highest-cost models from current-month activity."
+            description={`Highest-cost models in the ${periodLabel.toLowerCase()}.`}
           />
 
           <div className="mt-6 overflow-x-auto">
+
             {topModels.length ? (
               <table className="min-w-full text-sm">
+
                 <thead>
                   <tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-[0.14em] text-slate-400">
+
                     <th className="px-3 py-3">
                       Model
                     </th>
@@ -1181,6 +1437,7 @@ export default async function DashboardPage() {
                     <th className="px-3 py-3 text-right">
                       Spend
                     </th>
+
                   </tr>
                 </thead>
 
@@ -1196,8 +1453,10 @@ export default async function DashboardPage() {
                         }
                         className="border-b border-slate-100 last:border-0"
                       >
+
                         <td className="px-3 py-4">
                           <div className="flex min-w-[220px] items-center gap-3">
+
                             <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-100 text-xs font-semibold text-slate-600">
                               {index +
                                 1}
@@ -1208,6 +1467,7 @@ export default async function DashboardPage() {
                                 model.model
                               }
                             </span>
+
                           </div>
                         </td>
 
@@ -1228,108 +1488,153 @@ export default async function DashboardPage() {
                             model.cost,
                           )}
                         </td>
+
                       </tr>
                     ),
                   )}
                 </tbody>
+
               </table>
             ) : (
               <EmptyState
                 title="No model activity"
-                description="Model-level cost data will appear after usage records are collected."
+                description="Model-level spend will appear after usage is recorded."
               />
             )}
+
           </div>
         </div>
 
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
           <SectionHeader
             eyebrow="Snapshot"
-            title="Usage at a glance"
-            description="Helpful context for the current period."
+            title="Selected period"
+            description="Quick context for the active date range."
           />
 
-          <div className="mt-6 grid gap-3">
+          <div className="mt-6 space-y-3">
+
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-slate-500">
-                  Tokens this month
+                  Spend
                 </span>
 
-                <Icon className="h-4 w-4 text-slate-400">
-                  <path d="M7 7h10" />
-                  <path d="M7 12h10" />
-                  <path d="M7 17h10" />
-                </Icon>
+                <CircleDollarSign className="h-4 w-4 text-slate-400" />
               </div>
 
               <p className="mt-2 text-xl font-semibold text-slate-950">
-                {formatNumber(
-                  monthTokens,
+                {formatUsd(
+                  periodSpend,
                 )}
               </p>
+
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-slate-500">
-                  Tokens, last 7 days
+                  Average daily spend
                 </span>
 
-                <Icon className="h-4 w-4 text-slate-400">
-                  <path d="M4 19V5" />
-                  <path d="M4 19h16" />
-                  <path d="m7 15 3-5 3 2 4-6" />
-                </Icon>
+                <Activity className="h-4 w-4 text-slate-400" />
               </div>
 
               <p className="mt-2 text-xl font-semibold text-slate-950">
-                {formatNumber(
-                  lastSevenDaysTokens,
+                {formatUsd(
+                  avgDailySpend,
                 )}
               </p>
+
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+
+                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">
+                  Providers
+                </p>
+
+                <p className="mt-1 text-lg font-semibold text-slate-950">
+                  {formatNumber(
+                    providerBreakdown.length,
+                  )}
+                </p>
+
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+
+                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">
+                  Models
+                </p>
+
+                <p className="mt-1 text-lg font-semibold text-slate-950">
+                  {formatNumber(
+                    topModelsMap.size,
+                  )}
+                </p>
+
+              </div>
+
             </div>
 
             <Link
               href="/dashboard/api-management"
-              className="group rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-slate-300 hover:bg-slate-50"
+              className="group flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-slate-300 hover:bg-slate-50"
             >
-              <div className="flex items-center justify-between gap-3">
+
+              <div className="flex items-center gap-3">
+
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+                  <KeyRound className="h-4 w-4" />
+                </div>
+
                 <div>
+
                   <p className="text-sm font-semibold text-slate-800">
                     API infrastructure
                   </p>
 
                   <p className="mt-1 text-xs text-slate-500">
-                    Manage projects, environments and keys.
+                    Projects, environments and keys
                   </p>
+
                 </div>
 
-                <Icon className="h-4 w-4 text-slate-400 transition group-hover:translate-x-0.5">
-                  <path d="M5 12h14" />
-                  <path d="m13 6 6 6-6 6" />
-                </Icon>
               </div>
+
+              <ArrowRight className="h-4 w-4 text-slate-400 transition group-hover:translate-x-0.5" />
+
             </Link>
+
           </div>
         </div>
+
       </section>
 
       {/* ALERTS */}
 
       {anomalies.length > 0 ? (
         <section className="rounded-3xl border border-amber-200 bg-amber-50/70 p-6 shadow-sm">
+
           <SectionHeader
             eyebrow="Attention"
             title="Spending alerts"
             description={`${anomalies.length} unusual pattern${
-              anomalies.length === 1
+              anomalies.length ===
+              1
                 ? ""
                 : "s"
             } detected in the recent 30-day window.`}
           />
 
           <div className="mt-5 grid gap-3 lg:grid-cols-3">
+
             {anomalies
               .slice(0, 3)
               .map(
@@ -1337,17 +1642,16 @@ export default async function DashboardPage() {
                   anomaly,
                   index,
                 ) => {
-                  const baseline =
+                  const average =
                     Number(
                       anomaly.rolling_avg ??
                         0,
                     );
 
                   const multiplier =
-                    baseline >
-                    0
+                    average > 0
                       ? anomaly.spend /
-                        baseline
+                        average
                       : 0;
 
                   return (
@@ -1355,22 +1659,24 @@ export default async function DashboardPage() {
                       key={`${anomaly.date}-${index}`}
                       className="rounded-2xl border border-amber-200 bg-white p-4"
                     >
+
                       <div className="flex items-center justify-between gap-3">
+
                         <div className="flex items-center gap-2">
-                          <span
-                            className={`h-2.5 w-2.5 rounded-full ${
-                              anomaly.severity ===
-                              "critical"
-                                ? "bg-red-500"
-                                : "bg-amber-500"
-                            }`}
-                          />
+
+                          {anomaly.severity ===
+                          "critical" ? (
+                            <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+                          ) : (
+                            <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+                          )}
 
                           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
                             {
                               anomaly.severity
                             }
                           </span>
+
                         </div>
 
                         <span className="text-xs text-slate-400">
@@ -1378,6 +1684,7 @@ export default async function DashboardPage() {
                             anomaly.date,
                           )}
                         </span>
+
                       </div>
 
                       <p className="mt-3 text-lg font-semibold text-slate-950">
@@ -1393,10 +1700,12 @@ export default async function DashboardPage() {
                         )}
                         × the preceding rolling average.
                       </p>
+
                     </div>
                   );
                 },
               )}
+
           </div>
         </section>
       ) : null}
@@ -1404,31 +1713,33 @@ export default async function DashboardPage() {
       {/* RECENT USAGE */}
 
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+
         <SectionHeader
           eyebrow="Activity"
           title="Recent usage"
-          description="Latest recorded API activity for the current month."
+          description={`Latest recorded API activity within the ${periodLabel.toLowerCase()}.`}
           action={
             <Link
               href="/dashboard/stats"
               className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-700 hover:text-slate-950"
             >
               View detailed analytics
-
-              <Icon className="h-4 w-4">
-                <path d="M5 12h14" />
-                <path d="m13 6 6 6-6 6" />
-              </Icon>
+              <ArrowRight className="h-4 w-4" />
             </Link>
           }
         />
 
         <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200">
+
           <div className="overflow-x-auto">
+
             {recentRows.length ? (
               <table className="min-w-full text-sm">
+
                 <thead className="bg-slate-50">
+
                   <tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-[0.14em] text-slate-400">
+
                     <th className="px-4 py-3">
                       Date
                     </th>
@@ -1452,10 +1763,13 @@ export default async function DashboardPage() {
                     <th className="px-4 py-3">
                       Stop reason
                     </th>
+
                   </tr>
+
                 </thead>
 
                 <tbody>
+
                   {recentRows.map(
                     (
                       row,
@@ -1468,6 +1782,7 @@ export default async function DashboardPage() {
                         }
                         className="border-b border-slate-100 last:border-0"
                       >
+
                         <td className="whitespace-nowrap px-4 py-4 text-slate-600">
                           {formatDate(
                             row.fetched_at ??
@@ -1497,7 +1812,7 @@ export default async function DashboardPage() {
                         </td>
 
                         <td className="px-4 py-4 text-right font-semibold text-slate-950">
-                          {formatUsdCompact(
+                          {formatUsd(
                             Number(
                               row.total_cost_usd ??
                                 0,
@@ -1509,20 +1824,24 @@ export default async function DashboardPage() {
                           {row.stop_reason ??
                             "n/a"}
                         </td>
+
                       </tr>
                     ),
                   )}
+
                 </tbody>
               </table>
             ) : (
               <EmptyState
                 title="No usage recorded"
-                description="Your latest API activity will appear here once the tracker receives usage records."
+                description="No API activity exists in the selected date range."
               />
             )}
+
           </div>
         </div>
       </section>
+
     </div>
   );
 }

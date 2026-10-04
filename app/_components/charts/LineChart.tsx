@@ -7,18 +7,36 @@ type ChartPoint = {
   y: number;
 };
 
+type ValueFormat = "number" | "usd";
+
+function formatNumber(value: number) {
+  return value.toLocaleString("en-US", {
+    maximumFractionDigits: 4,
+  });
+}
+
+function formatUsd(value: number) {
+  return `$${value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 export default function LineChart({
   points,
   height = 220,
   stroke = "#3C6E71",
-  valueFormatter,
+  valueFormat = "number",
 }: {
   points: ChartPoint[];
   height?: number;
   stroke?: string;
-  valueFormatter?: (value: number) => string;
+  valueFormat?: ValueFormat;
 }) {
-  const gradientId = useId().replace(/:/g, "");
+  const gradientId = useId().replace(
+    /:/g,
+    "",
+  );
 
   const [activeIndex, setActiveIndex] =
     useState<number | null>(null);
@@ -70,8 +88,7 @@ export default function LineChart({
 
     return (
       padLeft +
-      (index /
-        (safePoints.length - 1)) *
+      (index / (safePoints.length - 1)) *
         innerW
     );
   }
@@ -124,15 +141,11 @@ export default function LineChart({
         )
       : 50;
 
-  const formatValue =
-    valueFormatter ??
-    ((value: number) =>
-      value.toLocaleString(
-        "en-US",
-        {
-          maximumFractionDigits: 4,
-        },
-      ));
+  function formatValue(value: number) {
+    return valueFormat === "usd"
+      ? formatUsd(value)
+      : formatNumber(value);
+  }
 
   function handleMouseMove(
     event: React.MouseEvent<SVGSVGElement>,
@@ -205,8 +218,12 @@ export default function LineChart({
         preserveAspectRatio="none"
         role="img"
         aria-label="Line chart"
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
+        onMouseMove={
+          handleMouseMove
+        }
+        onMouseLeave={
+          handleMouseLeave
+        }
         className="overflow-visible"
       >
         <defs>
@@ -231,7 +248,7 @@ export default function LineChart({
           </linearGradient>
         </defs>
 
-        {/* HORIZONTAL GRID */}
+        {/* GRID */}
 
         {[0, 0.25, 0.5, 0.75, 1].map(
           (t) => {
@@ -257,7 +274,7 @@ export default function LineChart({
           },
         )}
 
-        {/* Y AXIS LABELS */}
+        {/* Y AXIS */}
 
         {[0, 0.5, 1].map(
           (t) => {
@@ -277,7 +294,9 @@ export default function LineChart({
                 fontSize="10"
                 fill="#94A3B8"
               >
-                {formatValue(value)}
+                {formatValue(
+                  value,
+                )}
               </text>
             );
           },
@@ -285,7 +304,8 @@ export default function LineChart({
 
         {/* AREA */}
 
-        {safePoints.length > 1 ? (
+        {safePoints.length >
+        1 ? (
           <path
             d={areaPath}
             fill={`url(#line-fill-${gradientId})`}
@@ -294,7 +314,8 @@ export default function LineChart({
 
         {/* LINE */}
 
-        {safePoints.length > 1 ? (
+        {safePoints.length >
+        1 ? (
           <path
             d={linePath}
             fill="none"
@@ -358,7 +379,10 @@ export default function LineChart({
         {/* DATA POINTS */}
 
         {safePoints.map(
-          (point, index) => {
+          (
+            point,
+            index,
+          ) => {
             const active =
               activeIndex ===
               index;
@@ -367,7 +391,9 @@ export default function LineChart({
               <circle
                 key={`${point.x}-${index}`}
                 cx={xAt(index)}
-                cy={yAt(point.y)}
+                cy={yAt(
+                  point.y,
+                )}
                 r={
                   active
                     ? 5
@@ -393,12 +419,11 @@ export default function LineChart({
         )}
       </svg>
 
-      {/* X AXIS LABELS */}
+      {/* X AXIS */}
 
       <div className="flex items-center justify-between px-11 text-[11px] text-slate-400">
         <span>
-          {safePoints[0]
-            ?.x ?? ""}
+          {safePoints[0]?.x ?? ""}
         </span>
 
         {safePoints.length >
