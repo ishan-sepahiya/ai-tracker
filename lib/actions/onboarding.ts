@@ -5,10 +5,29 @@ import { saveProvider } from "@/lib/providers/repository";
 import { requireUser } from "@/lib/auth/server";
 
 export type OnboardingProviderInput = {
-  providerName: "openai" | "bedrock" | "vertex" | "anthropic" | "other";
+  providerName:
+    | "openai"
+    | "bedrock"
+    | "vertex"
+    | "anthropic"
+    | "other";
+
   displayName: string;
-  apiKey: string;
+
+  /**
+   * Kept as an optional compatibility field for older onboarding
+   * callers. Provider secrets are no longer stored in the
+   * `providers` table.
+   *
+   * Configure provider credentials through:
+   * API Management → Provider Credentials.
+   */
+  apiKey?: string;
 };
+
+// ============================================================
+// CONNECT AI PROVIDERS
+// ============================================================
 
 export async function connectAIProviders(input: {
   providers: OnboardingProviderInput[];
@@ -16,102 +35,244 @@ export async function connectAIProviders(input: {
   const { userId } = await requireUser();
 
   if (!input.providers?.length) {
-    throw new Error("Select at least one provider");
+    throw new Error(
+      "Select at least one provider"
+    );
   }
 
   for (const provider of input.providers) {
-    if (!provider.apiKey) {
-      throw new Error(`Missing API key for ${provider.displayName}`);
+    const providerName =
+      provider.providerName;
+
+    const displayName =
+      provider.displayName?.trim() ||
+      providerName;
+
+    if (!providerName) {
+      throw new Error(
+        "Provider name is required"
+      );
     }
+
+    // --------------------------------------------------------
+    // Provider records now store metadata only.
+    //
+    // API secrets belong to provider_credentials and are
+    // managed from API Management where they can be scoped
+    // to a project/environment.
+    // --------------------------------------------------------
+
     await saveProvider({
       userId,
-      providerName: provider.providerName,
-      displayName: provider.displayName,
-      apiKey: provider.apiKey,
+      providerName,
+      displayName,
       isActive: true,
     });
   }
+
+  return {
+    success: true,
+    message:
+      "Provider metadata connected. Configure provider credentials from API Management.",
+  };
 }
+
+// ============================================================
+// SET MONTHLY BUDGET
+// ============================================================
 
 export async function setMonthlyBudget(input: {
   monthlyLimitUsd: number;
-  providerNames: OnboardingProviderInput["providerName"][];
+
+  providerNames:
+    OnboardingProviderInput["providerName"][];
 }) {
-  const { userId } = await requireUser();
+  const { userId } =
+    await requireUser();
 
-  if (!Number.isFinite(input.monthlyLimitUsd) || input.monthlyLimitUsd < 0) {
-    throw new Error("Invalid monthly budget");
+  if (
+    !Number.isFinite(
+      input.monthlyLimitUsd
+    ) ||
+    input.monthlyLimitUsd < 0
+  ) {
+    throw new Error(
+      "Invalid monthly budget"
+    );
   }
+
   if (!input.providerNames?.length) {
-    throw new Error("Select at least one provider");
+    throw new Error(
+      "Select at least one provider"
+    );
   }
 
-  // Map provider names to provider IDs.
-  const { data: providerRows, error: providerError } = await supabaseAdmin
-    .from("providers")
-    .select("id, provider_name")
-    .eq("user_id", userId)
-    .in("provider_name", input.providerNames);
+  // ----------------------------------------------------------
+  // Find provider IDs
+  // ----------------------------------------------------------
 
-  if (providerError) throw new Error(providerError.message);
-  const providers = (providerRows ?? []).filter(
-    (r): r is { id: string; provider_name: string } => !!r?.id
-  );
+  const {
+    data: providerRows,
+    error: providerError,
+  } = await supabaseAdmin
+    .from("providers")
+    .select(
+      "id, provider_name"
+    )
+    .eq(
+      "user_id",
+      userId
+    )
+    .in(
+      "provider_name",
+      input.providerNames
+    );
+
+  if (providerError) {
+    throw new Error(
+      providerError.message
+    );
+  }
+
+  const providers =
+    (providerRows ?? []).filter(
+      (
+        row
+      ): row is {
+        id: string;
+        provider_name: string;
+      } =>
+        !!row?.id
+    );
 
   if (!providers.length) {
-    throw new Error("No providers found to budget");
+    throw new Error(
+      "No providers found to budget"
+    );
   }
 
-  const providerIds = providers.map((p) => p.id);
+  const providerIds =
+    providers.map(
+      (provider) =>
+        provider.id
+    );
 
-  // Figure out which budgets already exist to avoid relying on unknown unique constraints.
-  const { data: existingBudgets, error: budgetsError } = await supabaseAdmin
+  // ----------------------------------------------------------
+  // Find existing budgets
+  // ----------------------------------------------------------
+
+  const {
+    data: existingBudgets,
+    error: budgetsError,
+  } = await supabaseAdmin
     .from("budgets")
-    .select("id, provider_id")
-    .eq("user_id", userId)
-    .in("provider_id", providerIds);
+    .select(
+      "id, provider_id"
+    )
+    .eq(
+      "user_id",
+      userId
+    )
+    .in(
+      "provider_id",
+      providerIds
+    );
 
-  if (budgetsError) throw new Error(budgetsError.message);
+  if (budgetsError) {
+    throw new Error(
+      budgetsError.message
+    );
+  }
 
-  const existingByProviderId = new Map<string, string>();
-  for (const row of existingBudgets ?? []) {
-    if (row?.provider_id && row?.id) {
-      existingByProviderId.set(row.provider_id, row.id);
+  const existingByProviderId =
+    new Map<string, string>();
+
+  for (const row of
+    existingBudgets ?? []) {
+    if (
+      row?.provider_id &&
+      row?.id
+    ) {
+      existingByProviderId.set(
+        row.provider_id,
+        row.id
+      );
     }
   }
 
-  const defaultThresholdPct = 80;
+  const defaultThresholdPct =
+    80;
 
-  for (const provider of providers) {
-    const budgetId = existingByProviderId.get(provider.id);
+  // ----------------------------------------------------------
+  // Create / update budgets
+  // ----------------------------------------------------------
+
+  for (const provider of
+    providers) {
+    const budgetId =
+      existingByProviderId.get(
+        provider.id
+      );
+
     if (budgetId) {
-      const { error: updateError } = await supabaseAdmin
+      const {
+        error: updateError,
+      } = await supabaseAdmin
         .from("budgets")
         .update({
-          monthly_limit_usd: input.monthlyLimitUsd,
-          // Keep existing threshold; ensure column exists by not touching it here.
+          monthly_limit_usd:
+            input.monthlyLimitUsd,
+
+          // Keep the existing alert
+          // threshold unchanged.
         })
-        .eq("id", budgetId);
-      if (updateError) throw new Error(updateError.message);
+        .eq(
+          "id",
+          budgetId
+        );
+
+      if (updateError) {
+        throw new Error(
+          updateError.message
+        );
+      }
     } else {
-      const { error: insertError } = await supabaseAdmin.from("budgets").insert({
-        user_id: userId,
-        provider_id: provider.id,
-        monthly_limit_usd: input.monthlyLimitUsd,
-        alert_threshold_pct: defaultThresholdPct,
-      });
-      if (insertError) throw new Error(insertError.message);
+      const {
+        error: insertError,
+      } = await supabaseAdmin
+        .from("budgets")
+        .insert({
+          user_id: userId,
+          provider_id:
+            provider.id,
+          monthly_limit_usd:
+            input.monthlyLimitUsd,
+          alert_threshold_pct:
+            defaultThresholdPct,
+        });
+
+      if (insertError) {
+        throw new Error(
+          insertError.message
+        );
+      }
     }
   }
 }
 
-async function tryUpdateEmailToggleOnBudgets(input: {
-  userId: string;
-  providerIds: string[];
-  enabled: boolean;
-}) {
-  // We don't know the exact column name for the email toggle from the screenshot,
-  // so we try a few common candidates and stop at the first success.
+// ============================================================
+// TRY UPDATE EMAIL TOGGLE
+// ============================================================
+
+async function tryUpdateEmailToggleOnBudgets(
+  input: {
+    userId: string;
+    providerIds: string[];
+    enabled: boolean;
+  }
+) {
+  // We do not know the exact email-toggle column in the
+  // current database schema, so try the supported candidates.
   const candidateColumns = [
     "email_notifications_enabled",
     "email_notification_enabled",
@@ -121,97 +282,246 @@ async function tryUpdateEmailToggleOnBudgets(input: {
     "notify_by_email",
   ] as const;
 
-  for (const column of candidateColumns) {
-    const { error } = await supabaseAdmin
+  for (const column of
+    candidateColumns) {
+    const {
+      error,
+    } = await supabaseAdmin
       .from("budgets")
-      .update({ [column]: input.enabled })
-      .eq("user_id", input.userId)
-      .in("provider_id", input.providerIds);
+      .update({
+        [column]:
+          input.enabled,
+      })
+      .eq(
+        "user_id",
+        input.userId
+      )
+      .in(
+        "provider_id",
+        input.providerIds
+      );
 
-    if (!error) return;
+    if (!error) {
+      return;
+    }
 
-    const msg = error.message?.toLowerCase?.() ?? "";
-    if (msg.includes("column") && msg.includes("does not exist")) {
+    const message =
+      error.message
+        ?.toLowerCase?.() ??
+      "";
+
+    if (
+      message.includes("column") &&
+      message.includes(
+        "does not exist"
+      )
+    ) {
       continue;
     }
 
-    // If it's not a missing-column error, bubble it up because we don't want silent failure.
-    throw new Error(error.message);
+    throw new Error(
+      error.message
+    );
   }
 }
 
-export async function saveNotificationPreferences(input: {
-  providerNames: OnboardingProviderInput["providerName"][];
-  alertThresholdPct: number;
-  emailEnabled: boolean;
-}) {
-  const { userId } = await requireUser();
+// ============================================================
+// SAVE NOTIFICATION PREFERENCES
+// ============================================================
 
-  if (!Number.isFinite(input.alertThresholdPct)) {
-    throw new Error("Invalid threshold percent");
+export async function saveNotificationPreferences(
+  input: {
+    providerNames:
+      OnboardingProviderInput["providerName"][];
+
+    alertThresholdPct: number;
+
+    emailEnabled: boolean;
+  }
+) {
+  const { userId } =
+    await requireUser();
+
+  if (
+    !Number.isFinite(
+      input.alertThresholdPct
+    )
+  ) {
+    throw new Error(
+      "Invalid threshold percent"
+    );
   }
 
-  const thresholdPct = Math.max(0, Math.min(100, Math.round(input.alertThresholdPct)));
+  const thresholdPct =
+    Math.max(
+      0,
+      Math.min(
+        100,
+        Math.round(
+          input.alertThresholdPct
+        )
+      )
+    );
 
   if (!input.providerNames?.length) {
-    throw new Error("Select at least one provider");
+    throw new Error(
+      "Select at least one provider"
+    );
   }
 
-  const { data: providerRows, error: providerError } = await supabaseAdmin
+  // ----------------------------------------------------------
+  // Find providers
+  // ----------------------------------------------------------
+
+  const {
+    data: providerRows,
+    error: providerError,
+  } = await supabaseAdmin
     .from("providers")
-    .select("id, provider_name")
-    .eq("user_id", userId)
-    .in("provider_name", input.providerNames);
+    .select(
+      "id, provider_name"
+    )
+    .eq(
+      "user_id",
+      userId
+    )
+    .in(
+      "provider_name",
+      input.providerNames
+    );
 
-  if (providerError) throw new Error(providerError.message);
-  const providers = (providerRows ?? []).filter(
-    (r): r is { id: string; provider_name: string } => !!r?.id
-  );
-  if (!providers.length) throw new Error("No providers found");
+  if (providerError) {
+    throw new Error(
+      providerError.message
+    );
+  }
 
-  const providerIds = providers.map((p) => p.id);
+  const providers =
+    (providerRows ?? []).filter(
+      (
+        row
+      ): row is {
+        id: string;
+        provider_name: string;
+      } =>
+        !!row?.id
+    );
 
-  const { error: thresholdError } = await supabaseAdmin
+  if (!providers.length) {
+    throw new Error(
+      "No providers found"
+    );
+  }
+
+  const providerIds =
+    providers.map(
+      (provider) =>
+        provider.id
+    );
+
+  // ----------------------------------------------------------
+  // Update threshold
+  // ----------------------------------------------------------
+
+  const {
+    error: thresholdError,
+  } = await supabaseAdmin
     .from("budgets")
-    .update({ alert_threshold_pct: thresholdPct })
-    .eq("user_id", userId)
-    .in("provider_id", providerIds);
+    .update({
+      alert_threshold_pct:
+        thresholdPct,
+    })
+    .eq(
+      "user_id",
+      userId
+    )
+    .in(
+      "provider_id",
+      providerIds
+    );
 
-  if (thresholdError) throw new Error(thresholdError.message);
+  if (thresholdError) {
+    throw new Error(
+      thresholdError.message
+    );
+  }
 
-  // Best-effort email toggle persistence (only if the column exists).
+  // ----------------------------------------------------------
+  // Best-effort email notification setting
+  // ----------------------------------------------------------
+
   await tryUpdateEmailToggleOnBudgets({
     userId,
     providerIds,
-    enabled: input.emailEnabled,
+    enabled:
+      input.emailEnabled,
   });
 }
 
-export async function markOnboardingComplete(selectedPlan: string) {
-  const { userId } = await requireUser();
+// ============================================================
+// MARK ONBOARDING COMPLETE
+// ============================================================
 
+export async function markOnboardingComplete(
+  selectedPlan: string
+) {
+  const { userId } =
+    await requireUser();
+
+  // ----------------------------------------------------------
   // Validate plan
-  const validPlans = ["trial", "professional", "enterprise"];
-  if (!validPlans.includes(selectedPlan)) {
-    throw new Error("Invalid plan selected");
+  // ----------------------------------------------------------
+
+  const validPlans = [
+    "trial",
+    "professional",
+    "enterprise",
+  ];
+
+  if (
+    !validPlans.includes(
+      selectedPlan
+    )
+  ) {
+    throw new Error(
+      "Invalid plan selected"
+    );
   }
 
-  const { data, error } = await supabaseAdmin
+  // ----------------------------------------------------------
+  // Update profile
+  // ----------------------------------------------------------
+
+  const {
+    data,
+    error,
+  } = await supabaseAdmin
     .from("profiles")
     .update({
-      onboarding_completed: true,
-      selected_plan: selectedPlan,
+      onboarding_completed:
+        true,
+
+      selected_plan:
+        selectedPlan,
     })
-    .eq("id", userId)
+    .eq(
+      "id",
+      userId
+    )
     .select()
     .single();
 
   if (error) {
-    console.error("Error marking onboarding complete:", error);
+    console.error(
+      "Error marking onboarding complete:",
+      error
+    );
+
     throw error;
   }
 
-  return { success: true, data };
+  return {
+    success: true,
+    data,
+  };
 }
-
-

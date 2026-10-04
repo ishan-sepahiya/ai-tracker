@@ -145,7 +145,7 @@ export default async function DashboardLayout({
     },
     {
       href: "/dashboard/stats",
-      label: "Analytics",
+      label: "Statistics",
     },
     {
       href: "/dashboard/api-management",

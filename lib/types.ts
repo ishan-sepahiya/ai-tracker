@@ -3,10 +3,11 @@ export type ProviderRow = {
   user_id: string;
   provider_name: string;
   display_name: string | null;
-  api_key_encrypted: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  is_custom?: boolean | null;
+  model_name?: string | null;
 };
 
 export type UsageRecordInsert = {

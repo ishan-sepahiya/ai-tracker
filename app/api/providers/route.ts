@@ -2,7 +2,6 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-import { decryptApiKey } from "@/lib/crypto";
 import {
   listProvidersForUser,
   saveProvider,
@@ -10,91 +9,249 @@ import {
 } from "@/lib/providers/repository";
 
 async function getAuthedUserId() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Missing Supabase environment variables");
-  }
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-  const cookieStorePromise = cookies();
+  const supabaseAnonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll: async () =>
-        (await cookieStorePromise).getAll().map((c) => ({
-          name: c.name,
-          value: c.value,
-        })),
-      // No cookie writes in REST routes (middleware handles refreshing).
-      setAll: async () => {},
-    },
-  });
-
-  const { data } = await supabase.auth.getUser();
-  return data.user?.id ?? null;
-}
-
-function maskLast4FromEncrypted(apiKeyEncrypted: string): string | null {
-  try {
-    const decrypted = decryptApiKey(apiKeyEncrypted).trim();
-    if (!decrypted) return null;
-    return decrypted.slice(-4);
-  } catch {
-    return null;
-  }
-}
-
-export async function GET() {
-  const userId = await getAuthedUserId();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const providers = await listProvidersForUser(userId);
-  return NextResponse.json({ providers });
-}
-
-export async function POST(request: Request) {
-  const userId = await getAuthedUserId();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const body = (await request.json()) as {
-    provider_name?: string;
-    display_name?: string;
-    displayName?: string;
-    apiKey?: string;
-  };
-
-  const providerName = body.provider_name;
-  const displayName = body.display_name ?? body.displayName ?? null;
-  const apiKey = body.apiKey;
-
-  if (!providerName || !apiKey || typeof apiKey !== "string") {
-    return NextResponse.json(
-      { error: "provider_name and apiKey are required" },
-      { status: 400 }
+  if (
+    !supabaseUrl ||
+    !supabaseAnonKey
+  ) {
+    throw new Error(
+      "Missing Supabase environment variables."
     );
   }
 
-  const row = await saveProvider({
-    userId,
-    providerName,
-    displayName,
-    apiKey,
-    isActive: true,
-  });
+  const cookieStore =
+    await cookies();
 
-  const responseItem: ProviderListItem = {
-    id: row.id,
-    user_id: row.user_id,
-    provider_name: row.provider_name,
-    display_name: row.display_name,
-    is_active: row.is_active,
-    api_key_masked_last4: maskLast4FromEncrypted(row.api_key_encrypted),
-  };
+  const supabase =
+    createServerClient(
+      supabaseUrl,
+      supabaseAnonKey,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
 
-  return NextResponse.json({ provider: responseItem }, { status: 201 });
+          setAll() {
+            // Cookie writes are handled
+            // by the existing auth flow.
+          },
+        },
+      }
+    );
+
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error) {
+    console.error(
+      "Supabase authentication error:",
+      error
+    );
+
+    return null;
+  }
+
+  return user?.id ?? null;
 }
 
+// ============================================================
+// GET
+// ============================================================
+
+export async function GET() {
+  try {
+    const userId =
+      await getAuthedUserId();
+
+    if (!userId) {
+      return NextResponse.json(
+        {
+          error:
+            "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    const providers =
+      await listProvidersForUser(
+        userId
+      );
+
+    return NextResponse.json(
+      {
+        providers,
+      },
+      {
+        status: 200,
+      }
+    );
+  } catch (error) {
+    console.error(
+      "❌ GET /api/providers failed:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Failed to load providers.",
+        details:
+          error instanceof Error
+            ? error.message
+            : String(error),
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
+
+// ============================================================
+// POST
+// ============================================================
+
+export async function POST(
+  request: Request
+) {
+  try {
+    const userId =
+      await getAuthedUserId();
+
+    if (!userId) {
+      return NextResponse.json(
+        {
+          error:
+            "Unauthorized",
+        },
+        {
+          status: 401,
+        }
+      );
+    }
+
+    const body =
+      (await request.json()) as {
+        provider_name?: string;
+        display_name?: string;
+        displayName?: string;
+        model_name?: string;
+        modelName?: string;
+        is_custom?: boolean;
+        isCustom?: boolean;
+      };
+
+    const providerName =
+      typeof body.provider_name ===
+      "string"
+        ? body.provider_name.trim()
+        : "";
+
+    const displayName =
+      typeof body.display_name ===
+      "string"
+        ? body.display_name.trim()
+        : typeof body.displayName ===
+            "string"
+          ? body.displayName.trim()
+          : "";
+
+    const modelName =
+      typeof body.model_name ===
+      "string"
+        ? body.model_name.trim()
+        : typeof body.modelName ===
+            "string"
+          ? body.modelName.trim()
+          : "";
+
+    const isCustom =
+      typeof body.is_custom ===
+      "boolean"
+        ? body.is_custom
+        : typeof body.isCustom ===
+            "boolean"
+          ? body.isCustom
+          : false;
+
+    if (!providerName) {
+      return NextResponse.json(
+        {
+          error:
+            "provider_name is required.",
+        },
+        {
+          status: 400,
+        }
+      );
+    }
+
+    const row =
+      await saveProvider({
+        userId,
+        providerName,
+        displayName:
+          displayName || null,
+        modelName:
+          modelName || null,
+        isCustom,
+        isActive: true,
+      });
+
+    const responseItem: ProviderListItem =
+      {
+        id: row.id,
+        user_id: row.user_id,
+        provider_name:
+          row.provider_name,
+        display_name:
+          row.display_name,
+        model_name:
+          row.model_name ?? null,
+        is_custom:
+          row.is_custom ?? null,
+        is_active:
+          row.is_active,
+      };
+
+    return NextResponse.json(
+      {
+        provider:
+          responseItem,
+      },
+      {
+        status: 201,
+      }
+    );
+  } catch (error) {
+    console.error(
+      "❌ POST /api/providers failed:",
+      error
+    );
+
+    return NextResponse.json(
+      {
+        error:
+          "Failed to save provider.",
+        details:
+          error instanceof Error
+            ? error.message
+            : String(error),
+      },
+      {
+        status: 500,
+      }
+    );
+  }
+}
