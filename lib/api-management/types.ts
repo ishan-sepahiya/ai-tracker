@@ -36,7 +36,6 @@ export type ApiKey = {
   project_id: string | null;
   environment_id: string | null;
   name: string | null;
-  key_hash: string;
   last_used: string | null;
   expires_at: string | null;
   created_at: string | null;
