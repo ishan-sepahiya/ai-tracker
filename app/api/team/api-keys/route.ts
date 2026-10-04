@@ -237,7 +237,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    await requireUser();
+    const user = await requireUser();
 
     const body = await request.json();
 
@@ -268,8 +268,9 @@ export async function PATCH(request: NextRequest) {
     const { data: existingKey, error: lookupError } =
       await supabaseAdmin
         .from("api_keys")
-        .select("id, environment_id")
+        .select("id, user_id, environment_id")
         .eq("id", id)
+        .eq("user_id", user.userId)
         .maybeSingle();
 
     if (lookupError) {
@@ -291,10 +292,9 @@ export async function PATCH(request: NextRequest) {
 
     const { data, error } = await supabaseAdmin
       .from("api_keys")
-      .update({
-        name,
-      })
+      .update({ name })
       .eq("id", id)
+      .eq("user_id", user.userId)
       .select(
         `
           id,
@@ -339,7 +339,7 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    await requireUser();
+    const user = await requireUser();
 
     const body = await request.json();
 
@@ -358,8 +358,9 @@ export async function DELETE(request: NextRequest) {
     const { data: existingKey, error: lookupError } =
       await supabaseAdmin
         .from("api_keys")
-        .select("id, environment_id")
+        .select("id, user_id, environment_id")
         .eq("id", id)
+        .eq("user_id", user.userId)
         .maybeSingle();
 
     if (lookupError) {
@@ -382,10 +383,9 @@ export async function DELETE(request: NextRequest) {
     // Revoke instead of physically deleting the key.
     const { data, error } = await supabaseAdmin
       .from("api_keys")
-      .update({
-        revoked: true,
-      })
+      .update({ revoked: true })
       .eq("id", id)
+      .eq("user_id", user.userId)
       .select(
         `
           id,
