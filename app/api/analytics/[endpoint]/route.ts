@@ -107,22 +107,67 @@ function getModelFromRawResponse(
   return model || "Unknown";
 }
 
+function getTokenCountsFromRawResponse(
+  rawResponse: UsageRawResponse,
+) {
+  if (!rawResponse) {
+    return {
+      inputTokens: null as number | null,
+      outputTokens: null as number | null,
+    };
+  }
+
+  const usage =
+    rawResponse.usage &&
+    typeof rawResponse.usage === "object"
+      ? (rawResponse.usage as Record<string, unknown>)
+      : null;
+
+  const toFiniteNumber = (value: unknown) => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  return {
+    inputTokens:
+      toFiniteNumber(usage?.input_tokens) ??
+      toFiniteNumber(usage?.inputTokens) ??
+      toFiniteNumber(rawResponse.input_tokens) ??
+      toFiniteNumber(rawResponse.inputTokens),
+
+    outputTokens:
+      toFiniteNumber(usage?.output_tokens) ??
+      toFiniteNumber(usage?.outputTokens) ??
+      toFiniteNumber(rawResponse.output_tokens) ??
+      toFiniteNumber(rawResponse.outputTokens),
+  };
+}
+
 function getDateRange(range: string) {
+  /*
+   * usage_records.date is a DATE column, not a timestamp.
+   * Therefore an exact rolling 24-hour window cannot be represented.
+   * We use calendar-day windows so the labels match the number of
+   * dates returned by the dashboard:
+   *   24h -> today + yesterday (best possible with DATE-only data)
+   *   7d  -> today + previous 6 calendar days
+   *   30d -> today + previous 29 calendar days
+   */
   const end = new Date();
   const start = new Date(end);
 
   switch (range) {
     case "24h":
-      start.setHours(start.getHours() - 24);
+      start.setDate(start.getDate() - 1);
       break;
 
     case "7d":
-      start.setDate(start.getDate() - 7);
+      start.setDate(start.getDate() - 6);
       break;
 
     case "30d":
     default:
-      start.setDate(start.getDate() - 30);
+      start.setDate(start.getDate() - 29);
       break;
   }
 
@@ -589,8 +634,22 @@ function normalizeRows(
   return rows.map((row) => {
     const provider = getRelation(row.providers);
 
-    const inputTokens = Number(row.prompt_tokens ?? 0);
-    const outputTokens = Number(row.completion_tokens ?? 0);
+    const rawTokenCounts =
+      getTokenCountsFromRawResponse(
+        row.raw_response,
+      );
+
+    const inputTokens =
+      row.prompt_tokens !== null &&
+      row.prompt_tokens !== undefined
+        ? Number(row.prompt_tokens)
+        : rawTokenCounts.inputTokens ?? 0;
+
+    const outputTokens =
+      row.completion_tokens !== null &&
+      row.completion_tokens !== undefined
+        ? Number(row.completion_tokens)
+        : rawTokenCounts.outputTokens ?? 0;
 
     const totalTokens =
       row.total_tokens !== null &&
