@@ -1,10 +1,15 @@
 "use server";
 
 import type { ReactNode } from "react";
+
 import Link from "next/link";
+
 import { cookies } from "next/headers";
+
 import { redirect } from "next/navigation";
+
 import { createServerClient } from "@supabase/ssr";
+
 import {
   Activity,
   AlertTriangle,
@@ -21,7 +26,9 @@ import {
 } from "lucide-react";
 
 import { supabaseAdmin } from "@/lib/supabase-admin";
+
 import { ensureProfileRow } from "@/lib/auth/server";
+
 import {
   aggregateByProvider,
   computeForecast,
@@ -29,7 +36,9 @@ import {
 } from "@/lib/analysis/engine";
 
 import PieChart from "@/app/_components/charts/PieChart";
+
 import LineChart from "@/app/_components/charts/LineChart";
+
 import DashboardPeriodFilter from "@/app/dashboard/components/DashboardPeriodFilter";
 
 type Period = "7d" | "30d" | "90d";
@@ -67,10 +76,12 @@ const PERIODS: Record<
     days: 7,
     label: "Last 7 days",
   },
+
   "30d": {
     days: 30,
     label: "Last 30 days",
   },
+
   "90d": {
     days: 90,
     label: "Last 90 days",
@@ -179,6 +190,38 @@ function formatDate(
   );
 }
 
+/* --------------------------------------------------------------------------
+ * DASHBOARD -> ANALYTICS DRILL-DOWN
+ * -------------------------------------------------------------------------- */
+
+function getAnalyticsRangeForDashboardPeriod(period: Period) {
+  return period === "90d" ? "30d" : period;
+}
+
+function buildProviderDrilldownUrl(
+  period: Period,
+  providerId: string,
+) {
+  const params = new URLSearchParams();
+
+  params.set(
+    "range",
+    getAnalyticsRangeForDashboardPeriod(period),
+  );
+
+  params.set(
+    "source",
+    "dashboard",
+  );
+
+  params.set(
+    "providerId",
+    providerId,
+  );
+
+  return `/dashboard/stats?${params.toString()}`;
+}
+
 function extractModel(
   rawResponse: unknown,
 ) {
@@ -249,6 +292,7 @@ function getDateBounds(
       formatDateISO(
         start,
       ),
+
     end:
       formatDateISO(
         end,
@@ -286,6 +330,7 @@ function getPreviousDateBounds(
       formatDateISO(
         previousStart,
       ),
+
     end: current.start,
   };
 }
@@ -609,6 +654,7 @@ async function getAuthedUserId() {
                     cookie.value,
                 }),
               ),
+
           setAll: async () => {},
         },
       },
@@ -827,12 +873,15 @@ export default async function DashboardPage(
     (previousUsageResult.data ??
       []) as Array<{
         date: string;
+
         total_cost_usd:
           | number
           | null;
+
         total_tokens:
           | number
           | null;
+
         request_count:
           | number
           | null;
@@ -1206,8 +1255,10 @@ export default async function DashboardPage(
         ) => ({
           label:
             provider.provider,
+
           value:
             provider.cost,
+
           color:
             PIE_COLORS[
               index
@@ -1294,11 +1345,13 @@ export default async function DashboardPage(
       .slice(0, 8)
       .map((row) => ({
         ...row,
+
         provider:
           providerNameById.get(
             row.provider_id,
           ) ??
           "Unknown provider",
+
         model:
           extractModel(
             row.raw_response,
@@ -1310,25 +1363,17 @@ export default async function DashboardPage(
 
   return (
     <div className="space-y-8">
-
       {/* HEADER */}
 
       <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
-
         <div className="relative px-6 py-7 sm:px-8">
-
           <div className="absolute inset-y-0 right-0 hidden w-1/3 bg-gradient-to-l from-slate-100/80 to-transparent lg:block" />
 
           <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-
             <div>
-
               <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">
-
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-
                 AI usage overview
-
               </div>
 
               <h1 className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
@@ -1339,11 +1384,9 @@ export default async function DashboardPage(
                 Monitor AI spend, usage, efficiency and budget health
                 from one place.
               </p>
-
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-
               <DashboardPeriodFilter
                 value={period}
               />
@@ -1355,13 +1398,10 @@ export default async function DashboardPage(
                 Open analytics
                 <ArrowRight className="h-4 w-4" />
               </Link>
-
             </div>
-
           </div>
 
           <div className="relative mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-100 pt-4 text-xs text-slate-500">
-
             <span className="inline-flex items-center gap-2">
               <CalendarDays className="h-4 w-4 text-slate-400" />
               {periodLabel}
@@ -1388,17 +1428,13 @@ export default async function DashboardPage(
               Comparing against the previous{" "}
               {periodConfig.days} days
             </span>
-
           </div>
-
         </div>
-
       </section>
 
       {/* KPI GRID */}
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-
         <MetricCard
           label="Period spend"
           value={formatUsd(
@@ -1476,17 +1512,13 @@ export default async function DashboardPage(
             <WalletCards className="h-5 w-5" />
           }
         />
-
       </section>
 
       {/* KPI INTELLIGENCE */}
 
       <section className="grid gap-4 md:grid-cols-3">
-
         <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-
           <div className="flex items-center justify-between">
-
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
                 Efficiency
@@ -1498,7 +1530,6 @@ export default async function DashboardPage(
             </div>
 
             <Layers3 className="h-5 w-5 text-slate-400" />
-
           </div>
 
           <p className="mt-5 text-2xl font-semibold text-slate-950">
@@ -1510,7 +1541,6 @@ export default async function DashboardPage(
           </p>
 
           <div className="mt-3 flex items-center gap-2">
-
             {tokensPerRequestChange !==
             null ? (
               <span
@@ -1521,7 +1551,6 @@ export default async function DashboardPage(
                     : "bg-emerald-50 text-emerald-700"
                 }`}
               >
-
                 {tokensPerRequestChange <
                 0 ? (
                   <ArrowDown className="h-3 w-3" />
@@ -1533,24 +1562,18 @@ export default async function DashboardPage(
                   tokensPerRequestChange,
                 ).toFixed(1)}
                 %
-
               </span>
             ) : null}
 
             <span className="text-xs text-slate-500">
               vs previous period
             </span>
-
           </div>
-
         </div>
 
         <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-
           <div className="flex items-center justify-between">
-
             <div>
-
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
                 Burn rate
               </p>
@@ -1558,11 +1581,9 @@ export default async function DashboardPage(
               <h2 className="mt-1 text-base font-semibold text-slate-950">
                 Daily spend velocity
               </h2>
-
             </div>
 
             <Activity className="h-5 w-5 text-slate-400" />
-
           </div>
 
           <p className="mt-5 text-2xl font-semibold text-slate-950">
@@ -1579,15 +1600,11 @@ export default async function DashboardPage(
             Based on current-month spend divided by the number of
             elapsed days this month.
           </p>
-
         </div>
 
         <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-
           <div className="flex items-center justify-between">
-
             <div>
-
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
                 Period efficiency
               </p>
@@ -1595,17 +1612,13 @@ export default async function DashboardPage(
               <h2 className="mt-1 text-base font-semibold text-slate-950">
                 Cost efficiency
               </h2>
-
             </div>
 
             <CircleDollarSign className="h-5 w-5 text-slate-400" />
-
           </div>
 
           <div className="mt-5 grid grid-cols-2 gap-3">
-
             <div className="rounded-2xl bg-slate-50 p-3">
-
               <p className="text-[11px] uppercase tracking-[0.1em] text-slate-400">
                 Cost / request
               </p>
@@ -1615,11 +1628,9 @@ export default async function DashboardPage(
                   costPerRequest,
                 )}
               </p>
-
             </div>
 
             <div className="rounded-2xl bg-slate-50 p-3">
-
               <p className="text-[11px] uppercase tracking-[0.1em] text-slate-400">
                 Tokens / request
               </p>
@@ -1631,28 +1642,21 @@ export default async function DashboardPage(
                   ),
                 )}
               </p>
-
             </div>
-
           </div>
-
         </div>
-
       </section>
 
       {/* TREND + BUDGET */}
 
       <section className="grid gap-6 xl:grid-cols-3">
-
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm xl:col-span-2">
-
           <SectionHeader
             eyebrow="Spending trend"
             title={`${periodLabel} spend`}
             description="Daily spend for the selected range."
             action={
               <div className="rounded-2xl bg-slate-50 px-4 py-3 text-right">
-
                 <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
                   Period total
                 </p>
@@ -1662,13 +1666,11 @@ export default async function DashboardPage(
                     periodSpend,
                   )}
                 </p>
-
               </div>
             }
           />
 
           <div className="mt-6">
-
             {trendPoints.length ? (
               <LineChart
                 points={trendPoints}
@@ -1682,13 +1684,10 @@ export default async function DashboardPage(
                 description="The selected period does not contain any recorded usage."
               />
             )}
-
           </div>
-
         </div>
 
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-
           <SectionHeader
             eyebrow="Budget"
             title="Budget health"
@@ -1696,11 +1695,8 @@ export default async function DashboardPage(
           />
 
           <div className="mt-6 rounded-3xl bg-slate-50 p-5">
-
             <div className="flex items-end justify-between gap-4">
-
               <div>
-
                 <p className="text-xs font-medium text-slate-500">
                   {monthlyLimit > 0
                     ? monthLabel(
@@ -1716,7 +1712,6 @@ export default async function DashboardPage(
                       )
                     : "No limit set"}
                 </p>
-
               </div>
 
               <div
@@ -1738,13 +1733,10 @@ export default async function DashboardPage(
                     ? "Healthy"
                     : "Not configured"}
               </div>
-
             </div>
 
             <div className="mt-6">
-
               <div className="flex items-center justify-between text-xs font-medium text-slate-500">
-
                 <span>
                   Used this month
                 </span>
@@ -1757,11 +1749,9 @@ export default async function DashboardPage(
                       )
                     : "—"}
                 </span>
-
               </div>
 
               <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-200">
-
                 <div
                   className={`h-full rounded-full ${
                     budgetTone ===
@@ -1776,15 +1766,11 @@ export default async function DashboardPage(
                     )}%`,
                   }}
                 />
-
               </div>
-
             </div>
 
             <div className="mt-5 grid grid-cols-2 gap-3">
-
               <div className="rounded-2xl border border-slate-200 bg-white p-3">
-
                 <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">
                   Current
                 </p>
@@ -1794,11 +1780,9 @@ export default async function DashboardPage(
                     monthSpend,
                   )}
                 </p>
-
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-white p-3">
-
                 <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">
                   Remaining
                 </p>
@@ -1811,19 +1795,13 @@ export default async function DashboardPage(
                       )
                     : "—"}
                 </p>
-
               </div>
-
             </div>
-
           </div>
 
           <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
-
             <div className="flex items-start gap-3">
-
               <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
-
                 {budgetPaceVariance !==
                   null &&
                 budgetPaceVariance >
@@ -1832,13 +1810,10 @@ export default async function DashboardPage(
                 ) : (
                   <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                 )}
-
               </div>
 
               <div>
-
                 <p className="text-sm font-semibold text-slate-800">
-
                   {monthlyLimit <=
                   0
                     ? "Budget tracking is not configured"
@@ -1861,11 +1836,9 @@ export default async function DashboardPage(
                             1,
                           )}% below expected budget pace`
                         : "Spending is close to expected budget pace"}
-
                 </p>
 
                 <p className="mt-1 text-xs leading-5 text-slate-500">
-
                   {monthlyLimit >
                   0
                     ? `Expected spend by today is about ${formatUsd(
@@ -1874,25 +1847,17 @@ export default async function DashboardPage(
                         dailyBurnRate,
                       )} per day.`
                     : "Add a monthly budget to turn burn-rate monitoring on."}
-
                 </p>
-
               </div>
-
             </div>
-
           </div>
-
         </div>
-
       </section>
 
       {/* PROVIDERS + FORECAST */}
 
       <section className="grid gap-6 xl:grid-cols-3">
-
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm xl:col-span-2">
-
           <SectionHeader
             eyebrow="Providers"
             title="Spend by provider"
@@ -1909,9 +1874,7 @@ export default async function DashboardPage(
           />
 
           <div className="mt-6 grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-center">
-
             <div className="flex justify-center">
-
               {providerPie.length ? (
                 <PieChart
                   data={
@@ -1925,11 +1888,9 @@ export default async function DashboardPage(
                   description="Provider distribution will appear after your first recorded request."
                 />
               )}
-
             </div>
 
             <div className="space-y-4">
-
               {providerBreakdown.length ? (
                 providerBreakdown
                   .slice(0, 5)
@@ -1937,7 +1898,6 @@ export default async function DashboardPage(
                     (
                       provider,
                     ) => {
-
                       const share =
                         periodSpend >
                         0
@@ -1960,20 +1920,18 @@ export default async function DashboardPage(
                           : 0;
 
                       return (
-                        <div
-                          key={
-                            provider.providerId
-                          }
+                        <Link
+                          href={buildProviderDrilldownUrl(
+                            period,
+                            provider.providerId,
+                          )}
+                          className="group block rounded-2xl p-3 transition hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:ring-offset-2"
+                          title={`Open ${provider.provider} analytics`}
                         >
-
                           <div className="flex items-center justify-between gap-4">
-
                             <div className="min-w-0">
-
-                              <p className="truncate text-sm font-semibold text-slate-800">
-                                {
-                                  provider.provider
-                                }
+                              <p className="truncate text-sm font-semibold text-slate-800 group-hover:text-slate-950">
+                                {provider.provider}
                               </p>
 
                               <p className="mt-1 text-xs text-slate-500">
@@ -1982,29 +1940,28 @@ export default async function DashboardPage(
                                 )}{" "}
                                 of period spend
                               </p>
-
                             </div>
 
-                            <p className="shrink-0 text-sm font-semibold text-slate-950">
-                              {formatUsd(
-                                provider.cost,
-                              )}
-                            </p>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <p className="text-sm font-semibold text-slate-950">
+                                {formatUsd(
+                                  provider.cost,
+                                )}
+                              </p>
 
+                              <ArrowRight className="h-4 w-4 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-slate-500" />
+                            </div>
                           </div>
 
                           <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-
                             <div
-                              className="h-full rounded-full bg-slate-700"
+                              className="h-full rounded-full bg-slate-700 transition-all group-hover:bg-slate-900"
                               style={{
                                 width: `${relative}%`,
                               }}
                             />
-
                           </div>
-
-                        </div>
+                        </Link>
                       );
                     },
                   )
@@ -2014,14 +1971,11 @@ export default async function DashboardPage(
                   description="Connect a provider and record usage to populate this section."
                 />
               )}
-
             </div>
-
           </div>
         </div>
 
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-
           <SectionHeader
             eyebrow="Forecast"
             title="Month-end projection"
@@ -2029,7 +1983,6 @@ export default async function DashboardPage(
           />
 
           <div className="mt-6 rounded-3xl bg-slate-950 p-5 text-white">
-
             <p className="text-xs font-medium text-slate-400">
               Projected spend
             </p>
@@ -2041,7 +1994,6 @@ export default async function DashboardPage(
             </p>
 
             <div className="mt-5 flex items-center justify-between border-t border-white/10 pt-4 text-xs">
-
               <span className="text-slate-400">
                 Days remaining
               </span>
@@ -2051,11 +2003,9 @@ export default async function DashboardPage(
                   forecast.days_remaining
                 }
               </span>
-
             </div>
 
             <div className="mt-3 flex items-center justify-between text-xs">
-
               <span className="text-slate-400">
                 Budget impact
               </span>
@@ -2074,27 +2024,20 @@ export default async function DashboardPage(
                     )
                   : "No budget"}
               </span>
-
             </div>
-
           </div>
 
           <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-
             <div className="flex items-start gap-3">
-
               <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-slate-700 shadow-sm ring-1 ring-slate-200">
-
                 {forecast.will_exceed ? (
                   <AlertTriangle className="h-4 w-4 text-amber-600" />
                 ) : (
                   <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                 )}
-
               </div>
 
               <div>
-
                 <p className="text-sm font-semibold text-slate-800">
                   {forecast.will_exceed
                     ? "Forecast is above budget"
@@ -2106,23 +2049,16 @@ export default async function DashboardPage(
                     ? "Current spending trajectory suggests a possible monthly overrun."
                     : "Current spending trajectory is not projecting a monthly budget overrun."}
                 </p>
-
               </div>
-
             </div>
-
           </div>
-
         </div>
-
       </section>
 
       {/* MODELS + SNAPSHOT */}
 
       <section className="grid gap-6 xl:grid-cols-3">
-
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm xl:col-span-2">
-
           <SectionHeader
             eyebrow="Models"
             title="Top models by spend"
@@ -2130,13 +2066,10 @@ export default async function DashboardPage(
           />
 
           <div className="mt-6 overflow-x-auto">
-
             {topModels.length ? (
               <table className="min-w-full text-sm">
-
                 <thead>
                   <tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-[0.14em] text-slate-400">
-
                     <th className="px-3 py-3">
                       Model
                     </th>
@@ -2152,12 +2085,10 @@ export default async function DashboardPage(
                     <th className="px-3 py-3 text-right">
                       Spend
                     </th>
-
                   </tr>
                 </thead>
 
                 <tbody>
-
                   {topModels.map(
                     (
                       model,
@@ -2169,11 +2100,8 @@ export default async function DashboardPage(
                         }
                         className="border-b border-slate-100 last:border-0"
                       >
-
                         <td className="px-3 py-4">
-
                           <div className="flex min-w-[220px] items-center gap-3">
-
                             <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-100 text-xs font-semibold text-slate-600">
                               {index +
                                 1}
@@ -2184,9 +2112,7 @@ export default async function DashboardPage(
                                 model.model
                               }
                             </span>
-
                           </div>
-
                         </td>
 
                         <td className="px-3 py-4 text-right text-slate-600">
@@ -2206,13 +2132,10 @@ export default async function DashboardPage(
                             model.cost,
                           )}
                         </td>
-
                       </tr>
                     ),
                   )}
-
                 </tbody>
-
               </table>
             ) : (
               <EmptyState
@@ -2220,13 +2143,10 @@ export default async function DashboardPage(
                 description="Model-level spend will appear after usage is recorded."
               />
             )}
-
           </div>
-
         </div>
 
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-
           <SectionHeader
             eyebrow="Snapshot"
             title="Selected period"
@@ -2234,17 +2154,13 @@ export default async function DashboardPage(
           />
 
           <div className="mt-6 space-y-3">
-
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-
               <div className="flex items-center justify-between">
-
                 <span className="text-xs font-medium text-slate-500">
                   Spend
                 </span>
 
                 <CircleDollarSign className="h-4 w-4 text-slate-400" />
-
               </div>
 
               <p className="mt-2 text-xl font-semibold text-slate-950">
@@ -2252,19 +2168,15 @@ export default async function DashboardPage(
                   periodSpend,
                 )}
               </p>
-
             </div>
 
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-
               <div className="flex items-center justify-between">
-
                 <span className="text-xs font-medium text-slate-500">
                   Average daily spend
                 </span>
 
                 <Activity className="h-4 w-4 text-slate-400" />
-
               </div>
 
               <p className="mt-2 text-xl font-semibold text-slate-950">
@@ -2272,13 +2184,10 @@ export default async function DashboardPage(
                   avgDailySpend,
                 )}
               </p>
-
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-
                 <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">
                   Providers
                 </p>
@@ -2288,11 +2197,9 @@ export default async function DashboardPage(
                     providerBreakdown.length,
                   )}
                 </p>
-
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-
                 <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">
                   Models
                 </p>
@@ -2302,15 +2209,11 @@ export default async function DashboardPage(
                     topModelsMap.size,
                   )}
                 </p>
-
               </div>
-
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-
                 <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">
                   Avg tokens / request
                 </p>
@@ -2322,11 +2225,9 @@ export default async function DashboardPage(
                     ),
                   )}
                 </p>
-
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-
                 <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">
                   Daily burn
                 </p>
@@ -2336,24 +2237,19 @@ export default async function DashboardPage(
                     dailyBurnRate,
                   )}
                 </p>
-
               </div>
-
             </div>
 
             <Link
               href="/dashboard/api-management"
               className="group flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-slate-300 hover:bg-slate-50"
             >
-
               <div className="flex items-center gap-3">
-
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
                   <KeyRound className="h-4 w-4" />
                 </div>
 
                 <div>
-
                   <p className="text-sm font-semibold text-slate-800">
                     API infrastructure
                   </p>
@@ -2361,26 +2257,19 @@ export default async function DashboardPage(
                   <p className="mt-1 text-xs text-slate-500">
                     Projects, environments and keys
                   </p>
-
                 </div>
-
               </div>
 
               <ArrowRight className="h-4 w-4 text-slate-400 transition group-hover:translate-x-0.5" />
-
             </Link>
-
           </div>
-
         </div>
-
       </section>
 
       {/* ALERTS */}
 
       {anomalies.length > 0 ? (
         <section className="rounded-3xl border border-amber-200 bg-amber-50/70 p-6 shadow-sm">
-
           <SectionHeader
             eyebrow="Attention"
             title="Spending alerts"
@@ -2393,7 +2282,6 @@ export default async function DashboardPage(
           />
 
           <div className="mt-5 grid gap-3 lg:grid-cols-3">
-
             {anomalies
               .slice(0, 3)
               .map(
@@ -2401,7 +2289,6 @@ export default async function DashboardPage(
                   anomaly,
                   index,
                 ) => {
-
                   const average =
                     Number(
                       anomaly.rolling_avg ??
@@ -2420,11 +2307,8 @@ export default async function DashboardPage(
                       key={`${anomaly.date}-${index}`}
                       className="rounded-2xl border border-amber-200 bg-white p-4"
                     >
-
                       <div className="flex items-center justify-between gap-3">
-
                         <div className="flex items-center gap-2">
-
                           <span
                             className={`h-2.5 w-2.5 rounded-full ${
                               anomaly.severity ===
@@ -2439,7 +2323,6 @@ export default async function DashboardPage(
                               anomaly.severity
                             }
                           </span>
-
                         </div>
 
                         <span className="text-xs text-slate-400">
@@ -2447,7 +2330,6 @@ export default async function DashboardPage(
                             anomaly.date,
                           )}
                         </span>
-
                       </div>
 
                       <p className="mt-3 text-lg font-semibold text-slate-950">
@@ -2463,12 +2345,10 @@ export default async function DashboardPage(
                         )}
                         × the preceding rolling average.
                       </p>
-
                     </div>
                   );
                 },
               )}
-
           </div>
         </section>
       ) : null}
@@ -2476,7 +2356,6 @@ export default async function DashboardPage(
       {/* RECENT USAGE */}
 
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-
         <SectionHeader
           eyebrow="Activity"
           title="Recent usage"
@@ -2493,16 +2372,11 @@ export default async function DashboardPage(
         />
 
         <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200">
-
           <div className="overflow-x-auto">
-
             {recentRows.length ? (
               <table className="min-w-full text-sm">
-
                 <thead className="bg-slate-50">
-
                   <tr className="border-b border-slate-200 text-left text-[11px] uppercase tracking-[0.14em] text-slate-400">
-
                     <th className="px-4 py-3">
                       Date
                     </th>
@@ -2526,13 +2400,10 @@ export default async function DashboardPage(
                     <th className="px-4 py-3">
                       Stop reason
                     </th>
-
                   </tr>
-
                 </thead>
 
                 <tbody>
-
                   {recentRows.map(
                     (
                       row,
@@ -2545,7 +2416,6 @@ export default async function DashboardPage(
                         }
                         className="border-b border-slate-100 last:border-0"
                       >
-
                         <td className="whitespace-nowrap px-4 py-4 text-slate-600">
                           {formatDate(
                             row.fetched_at ??
@@ -2587,13 +2457,10 @@ export default async function DashboardPage(
                           {row.stop_reason ??
                             "n/a"}
                         </td>
-
                       </tr>
                     ),
                   )}
-
                 </tbody>
-
               </table>
             ) : (
               <EmptyState
@@ -2601,13 +2468,9 @@ export default async function DashboardPage(
                 description="No API activity exists in the selected date range."
               />
             )}
-
           </div>
-
         </div>
-
       </section>
-
     </div>
   );
 }

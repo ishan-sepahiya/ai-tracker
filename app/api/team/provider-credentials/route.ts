@@ -155,6 +155,7 @@ export async function GET(
       organizationId =
         context.organizationId;
     }
+    
 
     await requireOrganizationAccess(
       organizationId,
