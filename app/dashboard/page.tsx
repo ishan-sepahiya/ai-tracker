@@ -8,12 +8,15 @@ import { createServerClient } from "@supabase/ssr";
 import {
   Activity,
   AlertTriangle,
+  ArrowDown,
   ArrowRight,
+  ArrowUp,
   CalendarDays,
   CheckCircle2,
   CircleDollarSign,
   KeyRound,
   Layers3,
+  Timer,
   WalletCards,
 } from "lucide-react";
 
@@ -47,6 +50,11 @@ type ProviderRow = {
   id: string;
   provider_name: string;
 };
+
+type ComparisonType =
+  | "higher-better"
+  | "lower-better"
+  | "neutral";
 
 const PERIODS: Record<
   Period,
@@ -94,39 +102,74 @@ function monthLabel(monthYear: string) {
     .map(Number);
 
   return new Date(
-    Date.UTC(year, month - 1, 1),
-  ).toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  });
+    Date.UTC(
+      year,
+      month - 1,
+      1,
+    ),
+  ).toLocaleDateString(
+    "en-US",
+    {
+      month: "long",
+      year: "numeric",
+      timeZone: "UTC",
+    },
+  );
 }
 
 function formatUsd(value: number) {
-  return `$${value.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return `$${value.toLocaleString(
+    "en-US",
+    {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    },
+  )}`;
+}
+
+function formatUsdSmall(value: number) {
+  if (value === 0) {
+    return "$0.00";
+  }
+
+  if (
+    Math.abs(value) < 0.01
+  ) {
+    return `$${value.toFixed(
+      4,
+    )}`;
+  }
+
+  return formatUsd(value);
 }
 
 function formatNumber(value: number) {
-  return value.toLocaleString("en-US");
+  return value.toLocaleString(
+    "en-US",
+  );
 }
 
 function formatPercent(value: number) {
   return `${value.toFixed(
-    value >= 100 ? 0 : 1,
+    Math.abs(value) >= 100
+      ? 0
+      : 1,
   )}%`;
 }
 
 function formatDate(
-  value: string | null | undefined,
+  value:
+    | string
+    | null
+    | undefined,
 ) {
   if (!value) {
     return "—";
   }
 
-  return new Date(value).toLocaleDateString(
+  return new Date(
+    value,
+  ).toLocaleDateString(
     "en-US",
     {
       month: "short",
@@ -136,10 +179,13 @@ function formatDate(
   );
 }
 
-function extractModel(rawResponse: unknown) {
+function extractModel(
+  rawResponse: unknown,
+) {
   if (
     !rawResponse ||
-    typeof rawResponse !== "object"
+    typeof rawResponse !==
+      "object"
   ) {
     return "Unknown model";
   }
@@ -151,21 +197,24 @@ function extractModel(rawResponse: unknown) {
     >;
 
   if (
-    typeof object.model === "string" &&
+    typeof object.model ===
+      "string" &&
     object.model.trim()
   ) {
     return object.model;
   }
 
   if (
-    typeof object.model_name === "string" &&
+    typeof object.model_name ===
+      "string" &&
     object.model_name.trim()
   ) {
     return object.model_name;
   }
 
   if (
-    typeof object.modelName === "string" &&
+    typeof object.modelName ===
+      "string" &&
     object.modelName.trim()
   ) {
     return object.modelName;
@@ -186,15 +235,58 @@ function getDateBounds(
     ),
   );
 
-  const start = new Date(end);
+  const start = new Date(
+    end,
+  );
 
   start.setUTCDate(
-    start.getUTCDate() - days,
+    start.getUTCDate() -
+      days,
   );
 
   return {
-    start: formatDateISO(start),
-    end: formatDateISO(end),
+    start:
+      formatDateISO(
+        start,
+      ),
+    end:
+      formatDateISO(
+        end,
+      ),
+  };
+}
+
+function getPreviousDateBounds(
+  days: number,
+  now: Date,
+) {
+  const current =
+    getDateBounds(
+      days,
+      now,
+    );
+
+  const currentStart =
+    new Date(
+      `${current.start}T00:00:00.000Z`,
+    );
+
+  const previousStart =
+    new Date(
+      currentStart,
+    );
+
+  previousStart.setUTCDate(
+    previousStart.getUTCDate() -
+      days,
+  );
+
+  return {
+    start:
+      formatDateISO(
+        previousStart,
+      ),
+    end: current.start,
   };
 }
 
@@ -203,38 +295,45 @@ function buildDailySeries(
   days: number,
   now: Date,
 ) {
-  const { start } = getDateBounds(
-    days,
-    now,
-  );
+  const { start } =
+    getDateBounds(
+      days,
+      now,
+    );
 
-  const startDate = new Date(
-    `${start}T00:00:00.000Z`,
-  );
+  const startDate =
+    new Date(
+      `${start}T00:00:00.000Z`,
+    );
 
-  const buckets = new Map<
-    string,
-    {
-      cost: number;
-      tokens: number;
-    }
-  >();
+  const buckets =
+    new Map<
+      string,
+      {
+        cost: number;
+        tokens: number;
+      }
+    >();
 
   for (
     let index = 0;
     index < days;
     index++
   ) {
-    const date = new Date(
-      startDate,
-    );
+    const date =
+      new Date(
+        startDate,
+      );
 
     date.setUTCDate(
-      date.getUTCDate() + index,
+      date.getUTCDate() +
+        index,
     );
 
     buckets.set(
-      formatDateISO(date),
+      formatDateISO(
+        date,
+      ),
       {
         cost: 0,
         tokens: 0,
@@ -243,20 +342,23 @@ function buildDailySeries(
   }
 
   for (const row of rows) {
-    const bucket = buckets.get(
-      row.date,
-    );
+    const bucket =
+      buckets.get(
+        row.date,
+      );
 
     if (!bucket) {
       continue;
     }
 
     bucket.cost += Number(
-      row.total_cost_usd ?? 0,
+      row.total_cost_usd ??
+        0,
     );
 
     bucket.tokens += Number(
-      row.total_tokens ?? 0,
+      row.total_tokens ??
+        0,
     );
   }
 
@@ -270,28 +372,84 @@ function buildDailySeries(
   );
 }
 
+function calculateChange(
+  current: number,
+  previous: number,
+) {
+  if (
+    previous === 0
+  ) {
+    return null;
+  }
+
+  return (
+    ((current - previous) /
+      previous) *
+    100
+  );
+}
+
+function changeTone(
+  change:
+    | number
+    | null,
+  comparison: ComparisonType,
+) {
+  if (
+    change === null ||
+    change === 0
+  ) {
+    return "neutral";
+  }
+
+  if (
+    comparison === "neutral"
+  ) {
+    return "neutral";
+  }
+
+  const improved =
+    comparison ===
+    "lower-better"
+      ? change < 0
+      : change > 0;
+
+  return improved
+    ? "positive"
+    : "negative";
+}
+
 function MetricCard({
   label,
   value,
   description,
   icon,
-  tone = "default",
+  change,
+  changeLabel,
+  comparison = "neutral",
 }: {
   label: string;
   value: string;
   description: string;
   icon: ReactNode;
-  tone?:
-    | "default"
-    | "positive"
-    | "warning";
+  change?:
+    | number
+    | null;
+  changeLabel?: string;
+  comparison?: ComparisonType;
 }) {
-  const iconClass =
+  const tone =
+    changeTone(
+      change ?? null,
+      comparison,
+    );
+
+  const badgeClass =
     tone === "positive"
-      ? "bg-emerald-50 text-emerald-700"
-      : tone === "warning"
-        ? "bg-amber-50 text-amber-700"
-        : "bg-slate-100 text-slate-700";
+      ? "bg-emerald-50 text-emerald-700 ring-emerald-100"
+      : tone === "negative"
+        ? "bg-red-50 text-red-700 ring-red-100"
+        : "bg-slate-100 text-slate-600 ring-slate-200";
 
   return (
     <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md">
@@ -306,14 +464,48 @@ function MetricCard({
           </p>
         </div>
 
-        <div
-          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${iconClass}`}
-        >
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
           {icon}
         </div>
       </div>
 
-      <p className="mt-4 text-sm leading-5 text-slate-500">
+      <div className="mt-4 flex min-h-6 items-center gap-2">
+        {change !==
+        undefined ? (
+          change === null ? (
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-500">
+              New baseline
+            </span>
+          ) : (
+            <span
+              className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset ${badgeClass}`}
+            >
+              {change > 0 ? (
+                <ArrowUp className="h-3 w-3" />
+              ) : change < 0 ? (
+                <ArrowDown className="h-3 w-3" />
+              ) : (
+                <span className="text-[11px]">
+                  •
+                </span>
+              )}
+
+              {Math.abs(
+                change,
+              ).toFixed(1)}
+              %
+            </span>
+          )
+        ) : null}
+
+        {changeLabel ? (
+          <span className="text-xs text-slate-500">
+            {changeLabel}
+          </span>
+        ) : null}
+      </div>
+
+      <p className="mt-2 text-sm leading-5 text-slate-500">
         {description}
       </p>
     </div>
@@ -490,14 +682,21 @@ export default async function DashboardPage(
       nextMonthDate,
     );
 
-  const bounds =
+  const currentBounds =
     getDateBounds(
       periodConfig.days,
       now,
     );
 
+  const previousBounds =
+    getPreviousDateBounds(
+      periodConfig.days,
+      now,
+    );
+
   const [
-    usageResult,
+    currentUsageResult,
+    previousUsageResult,
     providerResult,
     budgetResult,
     currentMonthBreakdown,
@@ -515,11 +714,11 @@ export default async function DashboardPage(
       )
       .gte(
         "date",
-        bounds.start,
+        currentBounds.start,
       )
       .lt(
         "date",
-        bounds.end,
+        currentBounds.end,
       )
       .order(
         "date",
@@ -532,6 +731,25 @@ export default async function DashboardPage(
         {
           ascending: false,
         },
+      )
+      .limit(5000),
+
+    supabaseAdmin
+      .from("usage_records")
+      .select(
+        "date,total_cost_usd,total_tokens,request_count",
+      )
+      .eq(
+        "user_id",
+        userId,
+      )
+      .gte(
+        "date",
+        previousBounds.start,
+      )
+      .lt(
+        "date",
+        previousBounds.end,
       )
       .limit(5000),
 
@@ -569,27 +787,56 @@ export default async function DashboardPage(
     ),
   ]);
 
-  if (usageResult.error) {
+  if (
+    currentUsageResult.error
+  ) {
     throw new Error(
-      usageResult.error.message,
+      currentUsageResult.error.message,
     );
   }
 
-  if (providerResult.error) {
+  if (
+    previousUsageResult.error
+  ) {
+    throw new Error(
+      previousUsageResult.error.message,
+    );
+  }
+
+  if (
+    providerResult.error
+  ) {
     throw new Error(
       providerResult.error.message,
     );
   }
 
-  if (budgetResult.error) {
+  if (
+    budgetResult.error
+  ) {
     throw new Error(
       budgetResult.error.message,
     );
   }
 
   const usageRows =
-    (usageResult.data ??
+    (currentUsageResult.data ??
       []) as UsageRow[];
+
+  const previousUsageRows =
+    (previousUsageResult.data ??
+      []) as Array<{
+        date: string;
+        total_cost_usd:
+          | number
+          | null;
+        total_tokens:
+          | number
+          | null;
+        request_count:
+          | number
+          | null;
+      }>;
 
   const providerRows =
     (providerResult.data ??
@@ -606,7 +853,9 @@ export default async function DashboardPage(
     );
 
   /*
+   * --------------------------------------------------------------------------
    * PERIOD METRICS
+   * --------------------------------------------------------------------------
    */
 
   const periodSpend =
@@ -642,14 +891,135 @@ export default async function DashboardPage(
       0,
     );
 
+  const previousSpend =
+    previousUsageRows.reduce(
+      (sum, row) =>
+        sum +
+        Number(
+          row.total_cost_usd ??
+            0,
+        ),
+      0,
+    );
+
+  const previousTokens =
+    previousUsageRows.reduce(
+      (sum, row) =>
+        sum +
+        Number(
+          row.total_tokens ??
+            0,
+        ),
+      0,
+    );
+
+  const previousRequests =
+    previousUsageRows.reduce(
+      (sum, row) =>
+        sum +
+        Number(
+          row.request_count ??
+            0,
+        ),
+      0,
+    );
+
+  const spendChange =
+    calculateChange(
+      periodSpend,
+      previousSpend,
+    );
+
+  const requestChange =
+    calculateChange(
+      periodRequests,
+      previousRequests,
+    );
+
+  const tokenChange =
+    calculateChange(
+      periodTokens,
+      previousTokens,
+    );
+
+  const costPerRequest =
+    periodRequests > 0
+      ? periodSpend /
+        periodRequests
+      : 0;
+
+  const previousCostPerRequest =
+    previousRequests > 0
+      ? previousSpend /
+        previousRequests
+      : 0;
+
+  const costPerRequestChange =
+    calculateChange(
+      costPerRequest,
+      previousCostPerRequest,
+    );
+
+  const costPer1kTokens =
+    periodTokens > 0
+      ? (periodSpend /
+          periodTokens) *
+        1000
+      : 0;
+
+  const previousCostPer1kTokens =
+    previousTokens > 0
+      ? (previousSpend /
+          previousTokens) *
+        1000
+      : 0;
+
+  const costPer1kChange =
+    calculateChange(
+      costPer1kTokens,
+      previousCostPer1kTokens,
+    );
+
   const avgDailySpend =
     periodConfig.days > 0
       ? periodSpend /
         periodConfig.days
       : 0;
 
+  const avgDailyRequests =
+    periodConfig.days > 0
+      ? periodRequests /
+        periodConfig.days
+      : 0;
+
+  const avgDailyTokens =
+    periodConfig.days > 0
+      ? periodTokens /
+        periodConfig.days
+      : 0;
+
+  const tokensPerRequest =
+    periodRequests > 0
+      ? periodTokens /
+        periodRequests
+      : 0;
+
+  const previousTokensPerRequest =
+    previousRequests > 0
+      ? previousTokens /
+        previousRequests
+      : 0;
+
+  const tokensPerRequestChange =
+    calculateChange(
+      tokensPerRequest,
+      previousTokensPerRequest,
+    );
+
   /*
-   * CURRENT MONTH BUDGET
+   * --------------------------------------------------------------------------
+   * CURRENT MONTH BUDGET INTELLIGENCE
+   * --------------------------------------------------------------------------
    */
 
   const monthlyLimit =
@@ -691,6 +1061,39 @@ export default async function DashboardPage(
         monthSpend,
     );
 
+  const daysInCurrentMonth =
+    new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth() + 1,
+        0,
+      ),
+    ).getUTCDate();
+
+  const currentDayOfMonth =
+    now.getUTCDate();
+
+  const expectedBudgetAtPace =
+    monthlyLimit > 0
+      ? monthlyLimit *
+        (currentDayOfMonth /
+          daysInCurrentMonth)
+      : 0;
+
+  const budgetPaceVariance =
+    expectedBudgetAtPace > 0
+      ? ((monthSpend -
+          expectedBudgetAtPace) /
+          expectedBudgetAtPace) *
+        100
+      : null;
+
+  const dailyBurnRate =
+    currentDayOfMonth > 0
+      ? monthSpend /
+        currentDayOfMonth
+      : 0;
+
   const budgetTone =
     monthlyLimit <= 0
       ? "default"
@@ -699,7 +1102,9 @@ export default async function DashboardPage(
         : "positive";
 
   /*
+   * --------------------------------------------------------------------------
    * DAILY TREND
+   * --------------------------------------------------------------------------
    */
 
   const dailySeries =
@@ -718,7 +1123,9 @@ export default async function DashboardPage(
     );
 
   /*
+   * --------------------------------------------------------------------------
    * PROVIDER BREAKDOWN
+   * --------------------------------------------------------------------------
    */
 
   const providerMap =
@@ -809,7 +1216,9 @@ export default async function DashboardPage(
       );
 
   /*
+   * --------------------------------------------------------------------------
    * TOP MODELS
+   * --------------------------------------------------------------------------
    */
 
   const topModelsMap =
@@ -875,7 +1284,9 @@ export default async function DashboardPage(
       .slice(0, 5);
 
   /*
+   * --------------------------------------------------------------------------
    * RECENT USAGE
+   * --------------------------------------------------------------------------
    */
 
   const recentRows =
@@ -903,15 +1314,21 @@ export default async function DashboardPage(
       {/* HEADER */}
 
       <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+
         <div className="relative px-6 py-7 sm:px-8">
+
           <div className="absolute inset-y-0 right-0 hidden w-1/3 bg-gradient-to-l from-slate-100/80 to-transparent lg:block" />
 
           <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
 
             <div>
+
               <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">
+
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+
                 AI usage overview
+
               </div>
 
               <h1 className="mt-4 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
@@ -919,9 +1336,10 @@ export default async function DashboardPage(
               </h1>
 
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 sm:text-base">
-                Monitor AI spend, usage, providers and budget
-                health from one place.
+                Monitor AI spend, usage, efficiency and budget health
+                from one place.
               </p>
+
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -939,6 +1357,7 @@ export default async function DashboardPage(
               </Link>
 
             </div>
+
           </div>
 
           <div className="relative mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-100 pt-4 text-xs text-slate-500">
@@ -951,29 +1370,44 @@ export default async function DashboardPage(
             <span className="h-1 w-1 rounded-full bg-slate-300" />
 
             <span>
-              {bounds.start}
+              {currentBounds.start}
               {" → "}
               {formatDateISO(
                 new Date(
-                  `${bounds.end}T00:00:00.000Z`,
+                  new Date(
+                    `${currentBounds.end}T00:00:00.000Z`,
+                  ).getTime() -
+                    86400000,
                 ),
               )}
             </span>
 
+            <span className="h-1 w-1 rounded-full bg-slate-300" />
+
+            <span>
+              Comparing against the previous{" "}
+              {periodConfig.days} days
+            </span>
+
           </div>
+
         </div>
+
       </section>
 
-      {/* KPI */}
+      {/* KPI GRID */}
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
 
         <MetricCard
           label="Period spend"
           value={formatUsd(
             periodSpend,
           )}
-          description={`Average ${formatUsd(avgDailySpend)} per day across ${periodConfig.days} days.`}
+          description={`Average ${formatUsd(avgDailySpend)} per day.`}
+          change={spendChange}
+          changeLabel="vs previous period"
+          comparison="lower-better"
           icon={
             <CircleDollarSign className="h-5 w-5" />
           }
@@ -984,14 +1418,12 @@ export default async function DashboardPage(
           value={formatNumber(
             periodRequests,
           )}
-          description={`Recorded API requests in the ${periodLabel.toLowerCase()}.`}
+          description={`About ${formatNumber(Math.round(avgDailyRequests))} requests per day.`}
+          change={requestChange}
+          changeLabel="vs previous period"
+          comparison="neutral"
           icon={
             <Activity className="h-5 w-5" />
-          }
-          tone={
-            periodRequests > 0
-              ? "positive"
-              : "default"
           }
         />
 
@@ -1000,33 +1432,211 @@ export default async function DashboardPage(
           value={formatNumber(
             periodTokens,
           )}
-          description="Input and output token volume in the selected range."
+          description={`About ${formatNumber(Math.round(avgDailyTokens))} tokens per day.`}
+          change={tokenChange}
+          changeLabel="vs previous period"
+          comparison="neutral"
           icon={
             <Layers3 className="h-5 w-5" />
           }
         />
 
         <MetricCard
-          label="Budget remaining"
-          value={
-            monthlyLimit > 0
-              ? formatUsd(
-                  budgetRemaining,
-                )
-              : "Not set"
-          }
+          label="Cost / request"
+          value={formatUsdSmall(
+            costPerRequest,
+          )}
           description={
-            monthlyLimit > 0
-              ? `${formatPercent(budgetUsedPct)} of the current monthly budget is used.`
-              : "Set a monthly budget to enable budget tracking."
+            costPerRequest > 0
+              ? "Average AI cost for each recorded request."
+              : "No requests in the selected period."
           }
+          change={
+            costPerRequestChange
+          }
+          changeLabel="lower is better"
+          comparison="lower-better"
+          icon={
+            <Timer className="h-5 w-5" />
+          }
+        />
+
+        <MetricCard
+          label="Cost / 1K tokens"
+          value={formatUsdSmall(
+            costPer1kTokens,
+          )}
+          description="Average cost for every 1,000 tokens."
+          change={
+            costPer1kChange
+          }
+          changeLabel="lower is better"
+          comparison="lower-better"
           icon={
             <WalletCards className="h-5 w-5" />
           }
-          tone={
-            budgetTone
-          }
         />
+
+      </section>
+
+      {/* KPI INTELLIGENCE */}
+
+      <section className="grid gap-4 md:grid-cols-3">
+
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+
+          <div className="flex items-center justify-between">
+
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                Efficiency
+              </p>
+
+              <h2 className="mt-1 text-base font-semibold text-slate-950">
+                Tokens per request
+              </h2>
+            </div>
+
+            <Layers3 className="h-5 w-5 text-slate-400" />
+
+          </div>
+
+          <p className="mt-5 text-2xl font-semibold text-slate-950">
+            {formatNumber(
+              Math.round(
+                tokensPerRequest,
+              ),
+            )}
+          </p>
+
+          <div className="mt-3 flex items-center gap-2">
+
+            {tokensPerRequestChange !==
+            null ? (
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                  tokensPerRequestChange <
+                  0
+                    ? "bg-amber-50 text-amber-700"
+                    : "bg-emerald-50 text-emerald-700"
+                }`}
+              >
+
+                {tokensPerRequestChange <
+                0 ? (
+                  <ArrowDown className="h-3 w-3" />
+                ) : (
+                  <ArrowUp className="h-3 w-3" />
+                )}
+
+                {Math.abs(
+                  tokensPerRequestChange,
+                ).toFixed(1)}
+                %
+
+              </span>
+            ) : null}
+
+            <span className="text-xs text-slate-500">
+              vs previous period
+            </span>
+
+          </div>
+
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+
+          <div className="flex items-center justify-between">
+
+            <div>
+
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                Burn rate
+              </p>
+
+              <h2 className="mt-1 text-base font-semibold text-slate-950">
+                Daily spend velocity
+              </h2>
+
+            </div>
+
+            <Activity className="h-5 w-5 text-slate-400" />
+
+          </div>
+
+          <p className="mt-5 text-2xl font-semibold text-slate-950">
+            {formatUsd(
+              dailyBurnRate,
+            )}
+
+            <span className="ml-1 text-sm font-medium text-slate-400">
+              / day
+            </span>
+          </p>
+
+          <p className="mt-3 text-xs leading-5 text-slate-500">
+            Based on current-month spend divided by the number of
+            elapsed days this month.
+          </p>
+
+        </div>
+
+        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+
+          <div className="flex items-center justify-between">
+
+            <div>
+
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                Period efficiency
+              </p>
+
+              <h2 className="mt-1 text-base font-semibold text-slate-950">
+                Cost efficiency
+              </h2>
+
+            </div>
+
+            <CircleDollarSign className="h-5 w-5 text-slate-400" />
+
+          </div>
+
+          <div className="mt-5 grid grid-cols-2 gap-3">
+
+            <div className="rounded-2xl bg-slate-50 p-3">
+
+              <p className="text-[11px] uppercase tracking-[0.1em] text-slate-400">
+                Cost / request
+              </p>
+
+              <p className="mt-1 text-sm font-semibold text-slate-950">
+                {formatUsdSmall(
+                  costPerRequest,
+                )}
+              </p>
+
+            </div>
+
+            <div className="rounded-2xl bg-slate-50 p-3">
+
+              <p className="text-[11px] uppercase tracking-[0.1em] text-slate-400">
+                Tokens / request
+              </p>
+
+              <p className="mt-1 text-sm font-semibold text-slate-950">
+                {formatNumber(
+                  Math.round(
+                    tokensPerRequest,
+                  ),
+                )}
+              </p>
+
+            </div>
+
+          </div>
+
+        </div>
 
       </section>
 
@@ -1042,6 +1652,7 @@ export default async function DashboardPage(
             description="Daily spend for the selected range."
             action={
               <div className="rounded-2xl bg-slate-50 px-4 py-3 text-right">
+
                 <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
                   Period total
                 </p>
@@ -1051,11 +1662,13 @@ export default async function DashboardPage(
                     periodSpend,
                   )}
                 </p>
+
               </div>
             }
           />
 
           <div className="mt-6">
+
             {trendPoints.length ? (
               <LineChart
                 points={trendPoints}
@@ -1069,6 +1682,7 @@ export default async function DashboardPage(
                 description="The selected period does not contain any recorded usage."
               />
             )}
+
           </div>
 
         </div>
@@ -1078,7 +1692,7 @@ export default async function DashboardPage(
           <SectionHeader
             eyebrow="Budget"
             title="Budget health"
-            description="Budget is always measured against the current month."
+            description="Monthly budget burn against expected pace."
           />
 
           <div className="mt-6 rounded-3xl bg-slate-50 p-5">
@@ -1086,6 +1700,7 @@ export default async function DashboardPage(
             <div className="flex items-end justify-between gap-4">
 
               <div>
+
                 <p className="text-xs font-medium text-slate-500">
                   {monthlyLimit > 0
                     ? monthLabel(
@@ -1101,13 +1716,16 @@ export default async function DashboardPage(
                       )
                     : "No limit set"}
                 </p>
+
               </div>
 
               <div
                 className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                  budgetTone === "warning"
+                  budgetTone ===
+                  "warning"
                     ? "bg-amber-100 text-amber-700"
-                    : budgetTone === "positive"
+                    : budgetTone ===
+                        "positive"
                       ? "bg-emerald-100 text-emerald-700"
                       : "bg-slate-200 text-slate-600"
                 }`}
@@ -1126,20 +1744,24 @@ export default async function DashboardPage(
             <div className="mt-6">
 
               <div className="flex items-center justify-between text-xs font-medium text-slate-500">
+
                 <span>
                   Used this month
                 </span>
 
                 <span>
-                  {monthlyLimit > 0
+                  {monthlyLimit >
+                  0
                     ? formatPercent(
                         budgetUsedPct,
                       )
                     : "—"}
                 </span>
+
               </div>
 
               <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-200">
+
                 <div
                   className={`h-full rounded-full ${
                     budgetTone ===
@@ -1154,6 +1776,7 @@ export default async function DashboardPage(
                     )}%`,
                   }}
                 />
+
               </div>
 
             </div>
@@ -1161,6 +1784,7 @@ export default async function DashboardPage(
             <div className="mt-5 grid grid-cols-2 gap-3">
 
               <div className="rounded-2xl border border-slate-200 bg-white p-3">
+
                 <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">
                   Current
                 </p>
@@ -1170,25 +1794,95 @@ export default async function DashboardPage(
                     monthSpend,
                   )}
                 </p>
+
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-white p-3">
+
                 <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">
                   Remaining
                 </p>
 
                 <p className="mt-1 text-sm font-semibold text-slate-900">
-                  {monthlyLimit > 0
+                  {monthlyLimit >
+                  0
                     ? formatUsd(
                         budgetRemaining,
                       )
                     : "—"}
                 </p>
+
               </div>
 
             </div>
 
           </div>
+
+          <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+
+            <div className="flex items-start gap-3">
+
+              <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-700">
+
+                {budgetPaceVariance !==
+                  null &&
+                budgetPaceVariance >
+                  5 ? (
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                ) : (
+                  <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                )}
+
+              </div>
+
+              <div>
+
+                <p className="text-sm font-semibold text-slate-800">
+
+                  {monthlyLimit <=
+                  0
+                    ? "Budget tracking is not configured"
+                    : budgetPaceVariance !==
+                          null &&
+                      budgetPaceVariance >
+                        5
+                      ? `Spending is ${Math.abs(
+                          budgetPaceVariance,
+                        ).toFixed(
+                          1,
+                        )}% ahead of expected budget pace`
+                      : budgetPaceVariance !==
+                            null &&
+                        budgetPaceVariance <
+                          -5
+                        ? `Spending is ${Math.abs(
+                            budgetPaceVariance,
+                          ).toFixed(
+                            1,
+                          )}% below expected budget pace`
+                        : "Spending is close to expected budget pace"}
+
+                </p>
+
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+
+                  {monthlyLimit >
+                  0
+                    ? `Expected spend by today is about ${formatUsd(
+                        expectedBudgetAtPace,
+                      )}. Current burn rate is ${formatUsd(
+                        dailyBurnRate,
+                      )} per day.`
+                    : "Add a monthly budget to turn burn-rate monitoring on."}
+
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+
         </div>
 
       </section>
@@ -1217,9 +1911,12 @@ export default async function DashboardPage(
           <div className="mt-6 grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)] lg:items-center">
 
             <div className="flex justify-center">
+
               {providerPie.length ? (
                 <PieChart
-                  data={providerPie}
+                  data={
+                    providerPie
+                  }
                   size={210}
                 />
               ) : (
@@ -1228,6 +1925,7 @@ export default async function DashboardPage(
                   description="Provider distribution will appear after your first recorded request."
                 />
               )}
+
             </div>
 
             <div className="space-y-4">
@@ -1239,6 +1937,7 @@ export default async function DashboardPage(
                     (
                       provider,
                     ) => {
+
                       const share =
                         periodSpend >
                         0
@@ -1253,7 +1952,8 @@ export default async function DashboardPage(
                         0;
 
                       const relative =
-                        topCost > 0
+                        topCost >
+                        0
                           ? (provider.cost /
                               topCost) *
                             100
@@ -1265,9 +1965,11 @@ export default async function DashboardPage(
                             provider.providerId
                           }
                         >
+
                           <div className="flex items-center justify-between gap-4">
 
                             <div className="min-w-0">
+
                               <p className="truncate text-sm font-semibold text-slate-800">
                                 {
                                   provider.provider
@@ -1280,6 +1982,7 @@ export default async function DashboardPage(
                                 )}{" "}
                                 of period spend
                               </p>
+
                             </div>
 
                             <p className="shrink-0 text-sm font-semibold text-slate-950">
@@ -1291,13 +1994,16 @@ export default async function DashboardPage(
                           </div>
 
                           <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+
                             <div
                               className="h-full rounded-full bg-slate-700"
                               style={{
                                 width: `${relative}%`,
                               }}
                             />
+
                           </div>
+
                         </div>
                       );
                     },
@@ -1310,6 +2016,7 @@ export default async function DashboardPage(
               )}
 
             </div>
+
           </div>
         </div>
 
@@ -1318,7 +2025,7 @@ export default async function DashboardPage(
           <SectionHeader
             eyebrow="Forecast"
             title="Month-end projection"
-            description="Forecast remains based on the current month's trajectory."
+            description="Projection remains based on the current month's trajectory."
           />
 
           <div className="mt-6 rounded-3xl bg-slate-950 p-5 text-white">
@@ -1334,6 +2041,7 @@ export default async function DashboardPage(
             </p>
 
             <div className="mt-5 flex items-center justify-between border-t border-white/10 pt-4 text-xs">
+
               <span className="text-slate-400">
                 Days remaining
               </span>
@@ -1343,9 +2051,11 @@ export default async function DashboardPage(
                   forecast.days_remaining
                 }
               </span>
+
             </div>
 
             <div className="mt-3 flex items-center justify-between text-xs">
+
               <span className="text-slate-400">
                 Budget impact
               </span>
@@ -1364,7 +2074,9 @@ export default async function DashboardPage(
                     )
                   : "No budget"}
               </span>
+
             </div>
+
           </div>
 
           <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -1372,11 +2084,13 @@ export default async function DashboardPage(
             <div className="flex items-start gap-3">
 
               <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white text-slate-700 shadow-sm ring-1 ring-slate-200">
+
                 {forecast.will_exceed ? (
                   <AlertTriangle className="h-4 w-4 text-amber-600" />
                 ) : (
                   <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                 )}
+
               </div>
 
               <div>
@@ -1398,6 +2112,7 @@ export default async function DashboardPage(
             </div>
 
           </div>
+
         </div>
 
       </section>
@@ -1442,6 +2157,7 @@ export default async function DashboardPage(
                 </thead>
 
                 <tbody>
+
                   {topModels.map(
                     (
                       model,
@@ -1455,6 +2171,7 @@ export default async function DashboardPage(
                       >
 
                         <td className="px-3 py-4">
+
                           <div className="flex min-w-[220px] items-center gap-3">
 
                             <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-slate-100 text-xs font-semibold text-slate-600">
@@ -1469,6 +2186,7 @@ export default async function DashboardPage(
                             </span>
 
                           </div>
+
                         </td>
 
                         <td className="px-3 py-4 text-right text-slate-600">
@@ -1492,6 +2210,7 @@ export default async function DashboardPage(
                       </tr>
                     ),
                   )}
+
                 </tbody>
 
               </table>
@@ -1503,6 +2222,7 @@ export default async function DashboardPage(
             )}
 
           </div>
+
         </div>
 
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -1510,7 +2230,7 @@ export default async function DashboardPage(
           <SectionHeader
             eyebrow="Snapshot"
             title="Selected period"
-            description="Quick context for the active date range."
+            description="Quick operational context for the active date range."
           />
 
           <div className="mt-6 space-y-3">
@@ -1518,11 +2238,13 @@ export default async function DashboardPage(
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
 
               <div className="flex items-center justify-between">
+
                 <span className="text-xs font-medium text-slate-500">
                   Spend
                 </span>
 
                 <CircleDollarSign className="h-4 w-4 text-slate-400" />
+
               </div>
 
               <p className="mt-2 text-xl font-semibold text-slate-950">
@@ -1536,11 +2258,13 @@ export default async function DashboardPage(
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
 
               <div className="flex items-center justify-between">
+
                 <span className="text-xs font-medium text-slate-500">
                   Average daily spend
                 </span>
 
                 <Activity className="h-4 w-4 text-slate-400" />
+
               </div>
 
               <p className="mt-2 text-xl font-semibold text-slate-950">
@@ -1583,6 +2307,40 @@ export default async function DashboardPage(
 
             </div>
 
+            <div className="grid grid-cols-2 gap-3">
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+
+                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">
+                  Avg tokens / request
+                </p>
+
+                <p className="mt-1 text-lg font-semibold text-slate-950">
+                  {formatNumber(
+                    Math.round(
+                      tokensPerRequest,
+                    ),
+                  )}
+                </p>
+
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+
+                <p className="text-[11px] uppercase tracking-[0.12em] text-slate-400">
+                  Daily burn
+                </p>
+
+                <p className="mt-1 text-lg font-semibold text-slate-950">
+                  {formatUsd(
+                    dailyBurnRate,
+                  )}
+                </p>
+
+              </div>
+
+            </div>
+
             <Link
               href="/dashboard/api-management"
               className="group flex items-center justify-between rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-slate-300 hover:bg-slate-50"
@@ -1613,6 +2371,7 @@ export default async function DashboardPage(
             </Link>
 
           </div>
+
         </div>
 
       </section>
@@ -1642,6 +2401,7 @@ export default async function DashboardPage(
                   anomaly,
                   index,
                 ) => {
+
                   const average =
                     Number(
                       anomaly.rolling_avg ??
@@ -1649,7 +2409,8 @@ export default async function DashboardPage(
                     );
 
                   const multiplier =
-                    average > 0
+                    average >
+                    0
                       ? anomaly.spend /
                         average
                       : 0;
@@ -1664,12 +2425,14 @@ export default async function DashboardPage(
 
                         <div className="flex items-center gap-2">
 
-                          {anomaly.severity ===
-                          "critical" ? (
-                            <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
-                          ) : (
-                            <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
-                          )}
+                          <span
+                            className={`h-2.5 w-2.5 rounded-full ${
+                              anomaly.severity ===
+                              "critical"
+                                ? "bg-red-500"
+                                : "bg-amber-500"
+                            }`}
+                          />
 
                           <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
                             {
@@ -1830,6 +2593,7 @@ export default async function DashboardPage(
                   )}
 
                 </tbody>
+
               </table>
             ) : (
               <EmptyState
@@ -1839,7 +2603,9 @@ export default async function DashboardPage(
             )}
 
           </div>
+
         </div>
+
       </section>
 
     </div>
